@@ -391,7 +391,7 @@ class Index(Sanji):
                 "switchable": False,
                 "current": None,
                 "preferred": None,
-                "avaliable": None
+                "available": None
             })
 
         fw_info = self._mgr._cell_mgmt.get_cellular_fw()

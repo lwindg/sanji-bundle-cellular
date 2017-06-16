@@ -927,12 +927,12 @@ class CellMgmt(object):
             "switchable": True,
             "current": {},
             "preferred": {},
-            "avaliable": []
+            "available": []
         }
 
         for entry in pri_list:
             entry_cols = entry.split("_")
-            result["avaliable"].append({
+            result["available"].append({
                 # "fwver": entry_cols[3],
                 "fwver": current_fw,  # FIXME: Use fixed fwver now
                 "config": "_".join(entry_cols[5:8]),
