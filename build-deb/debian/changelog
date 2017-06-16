@@ -1,3 +1,9 @@
+sanji-bundle-cellular (3.3.0+vs-1) unstable; urgency=low
+
+  * feat: switch carrier for 7354.
+
+ -- Zack YL Shih <zackyl.shih@moxa.com>  Fri, 16 Jun 2017 11:27:18 +0800
+
 sanji-bundle-cellular (3.3.0-1) unstable; urgency=low
 
   * feat: Remove phone number query.
