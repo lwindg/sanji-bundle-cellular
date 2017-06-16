@@ -38,7 +38,7 @@ class Index(Sanji):
                 Required("id"): int,
                 Required("retryTimeout", default=120): All(
                     int,
-                    Any(0, Range(min=10, max=86400-1))),
+                    Any(0, Range(min=10, max=86400 - 1))),
                 Required("primary"): {
                     Required("apn", default="internet"):
                         All(Any(unicode, str), Length(0, 100)),
@@ -57,7 +57,7 @@ class Index(Sanji):
                 Required("targetHost"): str,
                 Required("intervalSec"): All(
                     int,
-                    Any(0, Range(min=60, max=86400-1))),
+                    Any(0, Range(min=60, max=86400 - 1))),
                 Required("reboot",
                          default={"enable": False, "cycles": 1}): {
                     Required("enable", default=False): bool,
@@ -375,6 +375,44 @@ class Index(Sanji):
         _logger.info("publish network info: " + str(data))
         self.publish.event.put("/network/interfaces/{}".format(name),
                                data=data)
+
+    @Route(methods="get", resource="/network/cellulars/:id/firmware")
+    def get_fw(self, message, response):
+        if not self.__init_completed():
+            return response(code=400, data={"message": "resource not exist"})
+
+        id_ = int(message.param["id"])
+        if id_ != 1:
+            return response(code=400, data={"message": "resource not exist"})
+
+        m_info = self._mgr._cell_mgmt.m_info()
+        if m_info.module != "MC7354":
+            return response(code=200, data={
+                "switchable": False,
+                "current": None,
+                "preferred": None,
+                "avaliable": None
+            })
+
+        fw_info = self._mgr._cell_mgmt.get_cellular_fw()
+        return response(code=200, data=fw_info)
+
+    @Route(methods="put", resource="/network/cellulars/:id/firmware")
+    def put_fw(self, message, response):
+        if not self.__init_completed():
+            return response(code=400, data={"message": "resource not exist"})
+
+        id_ = int(message.param["id"])
+        if id_ != 1:
+            return response(code=400, data={"message": "resource not exist"})
+
+        response(code=200)
+
+        self._mgr._cell_mgmt.set_cellular_fw(
+            fwver=message.data["fwver"],
+            config=message.data["config"],
+            carrier=message.data["carrier"]
+        )
 
 
 if __name__ == "__main__":
