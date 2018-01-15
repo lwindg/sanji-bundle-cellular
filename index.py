@@ -73,6 +73,7 @@ class Index(Sanji):
         path_root = os.path.abspath(os.path.dirname(__file__))
         self.model = ModelInitiator("cellular", path_root)
         self.model.db[0] = Index.CONF_SCHEMA(self.model.db[0])
+        self.model.db[0]["name"] = "wwan0"
 
         self._dev_name = None
         self._mgr = None
@@ -124,7 +125,8 @@ class Index(Sanji):
         )
         self.__create_manager()
 
-        self._vnstat = VnStat(self._dev_name)
+        if not self._dev_name and self._dev_name != "":
+            self._vnstat = VnStat(self._dev_name)
 
     def __create_manager(self):
         pin = self.model.db[0]["pinCode"]
@@ -209,9 +211,7 @@ class Index(Sanji):
         if not self.__init_completed():
             return response(code=200, data=[])
 
-        if (self._dev_name is None or
-                self._mgr is None or
-                self._vnstat is None):
+        if (self._mgr is None):
             return response(code=200, data=[])
 
         return response(code=200, data=[self._get()])
@@ -253,6 +253,7 @@ class Index(Sanji):
         # its schema is identical to cellular.json
         self.model.db[0] = data
         self.model.save_db()
+        self.model.db[0]["name"] = "wwan{}".format(id_-1)
 
         if self._mgr is not None:
             self._mgr.stop()
@@ -273,10 +274,6 @@ class Index(Sanji):
         return response(code=200, data=self.model.db[0])
 
     def _get(self):
-        name = self._dev_name
-        if name is None:
-            name = "n/a"
-
         config = self.model.db[0]
 
         status = self._mgr.status()
@@ -292,7 +289,7 @@ class Index(Sanji):
             self._vnstat.update()
             usage = self._vnstat.get_usage()
 
-        except VnStatError:
+        except:
             usage = {
                 "txkbyte": -1,
                 "rxkbyte": -1
@@ -310,7 +307,7 @@ class Index(Sanji):
 
         return {
             "id": config["id"],
-            "name": name,
+            "name": "wwan{}".format(config["id"]-1),
             "mode": "n/a" if cinfo is None else cinfo.mode,
             "signal": {"csq": 0, "rssi": 0, "ecio": 0.0} if cinfo is None else
                     {"csq": cinfo.signal_csq,
@@ -356,10 +353,17 @@ class Index(Sanji):
             self,
             nwk_info):
 
-        name = self._dev_name
-        if name is None:
+        if nwk_info.devname and nwk_info.devname != "":
+            name = nwk_info.devname
+        else:
+            name = self._dev_name
+
+        if name is None or name == "":
             _logger.error("device name not available")
             return
+
+        if not self._vnstat:
+            self._vnstat = VnStat(name)
 
         data = {
             "name": name,

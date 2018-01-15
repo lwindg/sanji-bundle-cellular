@@ -16,6 +16,7 @@ from cellular_utility.cell_mgmt import (
     CellMgmt, CellMgmtError, SimStatus, CellularLocation, Signal
 )
 from cellular_utility.event import Log
+from cellular_utility.vnstat import VnStat, VnStatError
 
 _logger = logging.getLogger("sanji.cellular")
 
@@ -243,6 +244,8 @@ class CellularLogger(object):
 class Manager(object):
     PING_REQUEST_COUNT = 3
     PING_TIMEOUT_SEC = 20
+    CONNECTING_STATUS_RETRY_COUNT = 10
+    CONNECTING_STATUS_INTERVAL = 2
 
     class Status(Enum):
         initializing = 0
@@ -688,14 +691,20 @@ class Manager(object):
             if not self._attach():
                 return False
 
-            nwk_info = self._cell_mgmt.start(apn=apn)
+            self._cell_mgmt.start(apn=apn)
 
-            self._log.log_event_connect_success(nwk_info)
+            for _ in xrange(0, self.CONNECTING_STATUS_RETRY_COUNT):
+                nwk_info = self._cell_mgmt.status()
+                if nwk_info.status == "connected":
+                    break
+                self._sleep(self.CONNECTING_STATUS_INTERVAL)
 
-            connected = self._cell_mgmt.status()
-            if not connected:
+            if nwk_info.status != "connected":
                 self._log.log_event_cellular_disconnect()
                 return False
+            self._log.log_event_connect_success(nwk_info)
+            if nwk_info.devname and nwk_info.devname != "":
+                self._dev_name = nwk_info.devname
 
         except CellMgmtError:
             _logger.warning(format_exc())

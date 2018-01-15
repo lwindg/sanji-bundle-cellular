@@ -123,11 +123,13 @@ class NetworkInformation(object):
     def __init__(
             self,
             status,
+            devname,
             ip,
             netmask,
             gateway,
             dns_list):
-        if (not isinstance(status, bool) or
+        if (not isinstance(status, str) or
+                not isinstance(devname, str) or
                 not isinstance(ip, str) or
                 not isinstance(netmask, str) or
                 not isinstance(gateway, str)):
@@ -141,6 +143,7 @@ class NetworkInformation(object):
                 raise ValueError
 
         self._status = status
+        self._devname = devname
         self._ip = ip
         self._netmask = netmask
         self._gateway = gateway
@@ -149,6 +152,10 @@ class NetworkInformation(object):
     @property
     def status(self):
         return self._status
+
+    @property
+    def devname(self):
+        return self._devname
 
     @property
     def ip(self):
@@ -227,10 +234,14 @@ class Signal(object):
             mode=None,
             rssi_dbm=None,
             ecio_dbm=None,
+            rsrq_dbm=None,
+            rxqual_dbm=None,
             csq=None):
         self._mode = "none" if mode is None else mode
         self._rssi_dbm = 0 if rssi_dbm is None else rssi_dbm
         self._ecio_dbm = 0.0 if ecio_dbm is None else ecio_dbm
+        self._rsrq_dbm = 0.0 if rsrq_dbm is None else rsrq_dbm
+        self._rxqual_dbm = 0.0 if rxqual_dbm is None else rxqual_dbm
         self._csq = 0 if csq is None else csq
 
     @property
@@ -248,6 +259,14 @@ class Signal(object):
     @property
     def ecio_dbm(self):
         return self._ecio_dbm
+
+    @property
+    def rsrq_dbm(self):
+        return self._rsrq_dbm
+
+    @property
+    def rxqual_dbm(self):
+        return self._rxqual_dbm
 
 
 class CellularSimInfo(object):
@@ -318,23 +337,33 @@ class CellMgmt(object):
     cell_mgmt utilty wrapper
     """
 
-    _start_ip_regex = re.compile(
-        r"IP=([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\n")
-    _start_netmask_regex = re.compile(
-        r"SubnetMask=([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\n")
-    _start_gateway_regex = re.compile(
-        r"Gateway=([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\n")
-    _start_dns_regex = re.compile(
-        r"DNS=([0-9\. ]*)\n")
+    _status_status_regex = re.compile(
+        r"Status: (connected|connecting|disconnected)\n")
+    _status_ip_regex = re.compile(
+        r"IP: ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\n")
+    _status_netmask_regex = re.compile(
+        r"SubnetMask: ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\n")
+    _status_gateway_regex = re.compile(
+        r"Gateway: ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\n")
+    _status_dns_regex = re.compile(
+        r"DNS: ([0-9\. ]*)\n")
+    _status_pppdev_regex = re.compile(
+        r"PPPIFName: ([\S]*)\n")
     _signal_regex = re.compile(
         r"^([\S]+) (-[0-9]+) dbm\n$")
-    _signal_adv_regex = re.compile(
-        r"^CSQ: ([0-9]+)\n"
-        r"RSSI: ([\S]+) (-[0-9]+) dBm\n"
+    _signal_adv_csq_regex = re.compile(
+        r"CSQ: ([0-9]+)\n")
+    _signal_adv_rssi_regex = re.compile(
+        r"RSSI: ([\S]+) (-[0-9]+) dBm\n")
+    _signal_adv_ecio_regex = re.compile(
         r"EcIo: ([\S]+) (-[0-9.]+) dBm\n")
+    _signal_adv_rsrq_regex = re.compile(
+        r"RSRQ: ([\S]+) (-[0-9.]+) dBm\n")
+    _signal_adv_rxqual_regex = re.compile(
+        r"RxQual: ([\S]+) (-[0-9.]+) dBm\n")
     _m_info_regex = re.compile(
         r"^Module=([\S ]+)\n"
-        r"WWAN_node=([\S]+)\n"
+        r"WWAN_node=([\S]*)\n"
         r"AT_port=[\S]*\n"
         r"GPS_port=[\S]*\n"
         r"LAC=([\S]*)\n"
@@ -482,45 +511,17 @@ class CellMgmt(object):
             "PIN="
         ]
 
-        output = self._cell_mgmt(*args)
-        output = str(output)
+        self._cell_mgmt(*args)
         if self._invoke_period_sec != 0:
             sleep(self._invoke_period_sec)
 
-        match = self._start_ip_regex.search(output)
-        if not match:
-            _logger.warning("unexpected output: " + output)
-            raise CellMgmtError
-
-        ip_ = match.group(1)
-
-        match = self._start_netmask_regex.search(output)
-        if not match:
-            _logger.warning("unexpected output: " + output)
-            raise CellMgmtError
-
-        netmask = match.group(1)
-
-        match = self._start_gateway_regex.search(output)
-        if not match:
-            _logger.warning("unexpected output: " + output)
-            raise CellMgmtError
-
-        gateway = match.group(1)
-
-        match = self._start_dns_regex.search(output)
-        if not match:
-            _logger.warning("unexpected output: " + output)
-            raise CellMgmtError
-
-        dns = match.group(1).split(" ")
-
         return NetworkInformation(
-            status=True,
-            ip=ip_,
-            netmask=netmask,
-            gateway=gateway,
-            dns_list=dns)
+            status="connecting",
+            devname="",
+            ip="",
+            netmask="",
+            gateway="",
+            dns_list=[])
 
     @critical_section
     @handle_error_return_code
@@ -537,7 +538,8 @@ class CellMgmt(object):
         except ErrorReturnCode:
             _logger.warning(format_exc() + ", ignored")
         return NetworkInformation(
-            status=False,
+            status="disconnected",
+            devname="",
             ip="",
             netmask="",
             gateway="",
@@ -581,17 +583,42 @@ class CellMgmt(object):
         if self._invoke_period_sec != 0:
             sleep(self._invoke_period_sec)
 
-        match = CellMgmt._signal_adv_regex.match(output)
-        if match:
-            return Signal(
-                csq=int(match.group(1)),
-                mode=match.group(2),
-                rssi_dbm=int(match.group(3)),
-                ecio_dbm=float(match.group(5)))
+        match = self._signal_adv_rssi_regex.search(output)
+        if not match:
+            _logger.warning("unexpected output: " + output)
+            # signal out of range
+            return Signal()
 
-        _logger.warning("unexpected output: " + output)
-        # signal out of range
-        return Signal()
+        mode = match.group(1)
+        rssi = int(match.group(2))
+        csq = None
+        ecio = None
+        rsrq = None
+        rxqual = None
+
+        match = self._signal_adv_csq_regex.search(output)
+        if match:
+            csq = int(match.group(1))
+
+        match = self._signal_adv_ecio_regex.search(output)
+        if match:
+            ecio = float(match.group(2))
+
+        match = self._signal_adv_rsrq_regex.search(output)
+        if match:
+            rsrq = float(match.group(2))
+
+        match = self._signal_adv_rxqual_regex.search(output)
+        if match:
+            rxqual = float(match.group(2))
+
+        return Signal(
+            csq=csq,
+            mode=mode,
+            rssi_dbm=rssi,
+            ecio_dbm=ecio,
+            rsrq_dbm=rsrq,
+            rxqual_dbm=rxqual)
 
     @critical_section
     @handle_error_return_code
@@ -603,13 +630,68 @@ class CellMgmt(object):
 
         _logger.debug("cell_mgmt status")
 
-        try:
-            self._cell_mgmt("status")
-            return True
-        except ErrorReturnCode_1:
-            return False
+        status = "disconnected"
+        devname = ""
+        ip_ = ""
+        netmask = ""
+        gateway = ""
+        dns = []
 
-        return False
+        try:
+            output = self._cell_mgmt("status")
+        except ErrorReturnCode_1:
+            return NetworkInformation(
+                status=status,
+                devname=devname,
+                ip=ip_,
+                netmask=netmask,
+                gateway=gateway,
+                dns_list=dns)
+
+        output = str(output)
+        match = self._status_status_regex.search(output)
+        if not match:
+            _logger.warning("unexpected output: " + output)
+            raise CellMgmtError
+
+        status = match.group(1)
+        if status == "connected":
+            match = self._status_ip_regex.search(output)
+            if not match:
+                _logger.warning("unexpected output: " + output)
+                raise CellMgmtError
+
+            ip_ = match.group(1)
+
+            match = self._status_netmask_regex.search(output)
+            if match:
+                netmask = match.group(1)
+
+            match = self._status_gateway_regex.search(output)
+            if match:
+                gateway = match.group(1)
+
+            match = self._status_dns_regex.search(output)
+            if not match:
+                _logger.warning("unexpected output: " + output)
+                raise CellMgmtError
+
+            dns = match.group(1).split(" ")
+
+            match = self._status_pppdev_regex.search(output)
+            if not match:
+                _logger.warning("unexpected output: " + output)
+                raise CellMgmtError
+
+            devname = match.group(1)
+
+        return NetworkInformation(
+            status=status,
+            devname=devname,
+            ip=ip_,
+            netmask=netmask,
+            gateway=gateway,
+            dns_list=dns)
 
     @handle_error_return_code
     @retry_on_busy
