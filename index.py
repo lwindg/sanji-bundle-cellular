@@ -388,6 +388,7 @@ class Index(Sanji):
             self,
             nwk_info):
 
+        alias = "wwan0"
         if nwk_info.devname and nwk_info.devname != "":
             name = nwk_info.devname
         else:
@@ -401,18 +402,19 @@ class Index(Sanji):
             self._vnstat = VnStat(name)
 
         data = {
-            "name": name,
+            "name": alias,
+            "actualIface": name,
             "wan": True,
             "type": "cellular",
             "mode": "dhcp",
-            "status": nwk_info.status,
+            "status": True if nwk_info.status == "connected" else False,
             "ip": nwk_info.ip,
             "netmask": nwk_info.netmask,
             "gateway": nwk_info.gateway,
             "dns": nwk_info.dns_list
         }
         _logger.info("publish network info: " + str(data))
-        self.publish.event.put("/network/interfaces/{}".format(name),
+        self.publish.event.put("/network/interfaces/{}".format(alias),
                                data=data)
 
     @Route(methods="get", resource="/network/cellulars/:id/firmware")
