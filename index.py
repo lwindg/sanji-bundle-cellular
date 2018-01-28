@@ -111,22 +111,22 @@ class Index(Sanji):
         Set self._dev_name, self._mgr, self._vnstat properly.
         """
         cell_mgmt = CellMgmt()
-        wwan_node = None
+        devname = None
 
         for retry in xrange(0, 4):
             if retry == 3:
                 return
 
             try:
-                wwan_node = cell_mgmt.m_info().wwan_node
+                devname = cell_mgmt.module_info().devname
                 break
             except CellAllModuleNotSupportError:
                 break
             except CellMgmtError:
-                _logger.warning("get wwan_node failure: " + format_exc())
+                _logger.warning("get devname failure: " + format_exc())
                 cell_mgmt.power_cycle(timeout_sec=60)
 
-        self._dev_name = wwan_node
+        self._dev_name = devname
         self.__init_monit_config(
             enable=(self.model.db[0]["enable"] and
                     self.model.db[0]["keepalive"]["enable"] and True and
@@ -306,7 +306,7 @@ class Index(Sanji):
 
         status = self._mgr.status()
         minfo = self._mgr.module_information()
-        sinfo = self._mgr.static_information()
+        sinfo = self._mgr.sim_information()
         cinfo = self._mgr.cellular_information()
         ninfo = self._mgr.network_information()
         try:
@@ -426,7 +426,7 @@ class Index(Sanji):
         if id_ != 1:
             return response(code=400, data={"message": "resource not exist"})
 
-        m_info = self._mgr._cell_mgmt.m_info()
+        m_info = self._mgr._cell_mgmt.module_info()
         if m_info.module != "MC7354":
             return response(code=200, data={
                 "switchable": False,

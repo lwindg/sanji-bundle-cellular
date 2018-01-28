@@ -189,58 +189,61 @@ class NetworkInformation(object):
         return self._dns_list
 
 
-class MInfo(object):
+class ModuleInfo(object):
     def __init__(
             self,
             module,
-            wwan_node,
-            lac=None,
-            cell_id=None,
-            icc_id=None,
+            devname=None,
             imei=None,
-            qmi_port=None):
+            esn=None):
         self._module = module
-        self._wwan_node = wwan_node
-        self._lac = "" if lac is None else lac
-        self._cell_id = "" if cell_id is None else cell_id
-        self._icc_id = "" if icc_id is None else icc_id
+        self._devname = devname
         self._imei = "" if imei is None else imei
-
-        self._qmi_port = qmi_port
+        self._esn = "" if esn is None else esn
 
     @property
     def module(self):
         return self._module
 
     @property
-    def wwan_node(self):
-        return self._wwan_node
-
-    @property
-    def lac(self):
-        return self._lac
-
-    @property
-    def cell_id(self):
-        return self._cell_id
-
-    @property
-    def icc_id(self):
-        return self._icc_id
+    def devname(self):
+        return self._devname
 
     @property
     def imei(self):
         return self._imei
 
     @property
-    def qmi_port(self):
-        return self._qmi_port
+    def esn(self):
+        return self._esn
 
 
 class SimStatus(Enum):
     nosim = 0
-    pin = 1
-    ready = 2
+    ready = 1
+    pin = 2
+    puk = 3
+
+
+class SimInfo(object):
+    def __init__(
+            self,
+            iccid="",
+            imsi=""):
+        if (not isinstance(iccid, str) or
+                not isinstance(imsi, str)):
+            raise ValueError
+
+        self._iccid = iccid
+        self._imsi = imsi
+
+    @property
+    def iccid(self):
+        return self._iccid
+
+    @property
+    def imsi(self):
+        return self._imsi
 
 
 class Signal(object):
@@ -282,48 +285,6 @@ class Signal(object):
     @property
     def rxqual_dbm(self):
         return self._rxqual_dbm
-
-
-class CellularModuleIds(object):
-    def __init__(
-            self,
-            imei="",
-            esn=""):
-        if (not isinstance(imei, str) or
-                not isinstance(esn, str)):
-            raise ValueError
-
-        self._imei = imei
-        self._esn = esn
-
-    @property
-    def imei(self):
-        return self._imei
-
-    @property
-    def esn(self):
-        return self._esn
-
-
-class CellularSimInfo(object):
-    def __init__(
-            self,
-            iccid="",
-            imsi=""):
-        if (not isinstance(iccid, str) or
-                not isinstance(imsi, str)):
-            raise ValueError
-
-        self._iccid = iccid
-        self._imsi = imsi
-
-    @property
-    def iccid(self):
-        return self._iccid
-
-    @property
-    def imsi(self):
-        return self._imsi
 
 
 class CellularLocation(object):
@@ -397,16 +358,6 @@ class CellMgmt(object):
         r"RSRQ: ([\S]+) (-[0-9.]+) dBm\n")
     _signal_adv_rxqual_regex = re.compile(
         r"RxQual: ([\S]+) (-[0-9.]+) dBm\n")
-    _m_info_regex = re.compile(
-        r"^Module=([\S ]+)\n"
-        r"WWAN_node=([\S]*)\n"
-        r"AT_port=[\S]*\n"
-        r"GPS_port=[\S]*\n"
-        r"LAC=([\S]*)\n"
-        r"CellID=([\S]*)\n"
-        r"ICC-ID=([\S]*)\n"
-        r"IMEI=([\S]*)\n"
-        r"QMI_port=([\S]*)\n")
     _operator_regex = re.compile(
         r"^([\S ]*)\n$")
     _sim_status_ready_regex = re.compile(
@@ -423,10 +374,16 @@ class CellMgmt(object):
         r"PS: attached\n"
     )
 
-    _module_ids_imei_regex = re.compile(
+    _module_info_module_regex = re.compile(
+        r"Module: ([\S ]*)\n"
+    )
+    _module_info_devname_regex = re.compile(
+        r"WWAN_node: ([\S]*)\n"
+    )
+    _module_info_imei_regex = re.compile(
         r"IMEI: ([\S]*)\n"
     )
-    _module_ids_esn_regex = re.compile(
+    _module_info_esn_regex = re.compile(
         r"ESN: ([\S]*)\n"
     )
 
@@ -466,8 +423,6 @@ class CellMgmt(object):
     _lock = RLock()
 
     def __init__(self):
-        self._exe_path = "/sbin/cell_mgmt"
-
         # Add default timeout to cell_mgmt
         # will raise TimeoutException
         self._cell_mgmt = sh_default_timeout(sh.cell_mgmt, 70)
@@ -781,38 +736,6 @@ class CellMgmt(object):
     @critical_section
     @handle_error_return_code
     @retry_on_busy
-    def m_info(self):
-        """Return instance of MInfo."""
-
-        _logger.debug("cell_mgmt m_info")
-
-        output = self._cell_mgmt("m_info")
-        output = str(output)
-
-        if self._invoke_period_sec != 0:
-            sleep(self._invoke_period_sec)
-
-        match = self._m_info_regex.match(output)
-        if not match:
-            _logger.warning("unexpected output: " + output)
-            raise CellMgmtError
-
-        qmi_port = match.group(7)
-        if qmi_port == "":
-            qmi_port = None
-
-        return MInfo(
-            module=match.group(1),
-            wwan_node=match.group(2),
-            lac=match.group(3),
-            cell_id=match.group(4),
-            icc_id=match.group(5),
-            imei=match.group(6),
-            qmi_port=qmi_port)
-
-    @critical_section
-    @handle_error_return_code
-    @retry_on_busy
     def operator(self):
         """
         Return cellular operator name, like "Chunghwa Telecom"
@@ -884,7 +807,7 @@ class CellMgmt(object):
 
     @critical_section
     @handle_error_return_code
-    def set_pin(self, pin):
+    def unlock_pin(self, pin):
         """
         Return True if PIN unlocked.
         """
@@ -936,36 +859,58 @@ class CellMgmt(object):
 
     @critical_section
     @handle_error_return_code
-    def get_cellular_module_ids(self):
+    def module_info(self):
         """
-        Return CellularModuleIds instance.
+        Return ModuleInfo instance.
         """
+        module = None
+        devname = None
         imei = ""
         esn = ""
 
+        _logger.debug("cell_mgmt module_info")
         _logger.debug("cell_mgmt module_ids")
+
+        # `cell_mgmt module_info`
+        # SLOT: xxx
+        # Module: xxx
+        # WWAN_node: xxx
+        # AT_port: xxx
+        # GPS_port: xxx
+        # QMI_port: xxx
+        # Modem_port: xxx
+        output = str(self._cell_mgmt("module_info"))
+        found = self._module_info_module_regex.search(output)
+        if found:
+            module = found.group(1)
+
+        found = self._module_info_devname_regex.search(output)
+        if found:
+            devname = found.group(1)
 
         # `cell_mgmt module_ids`
         # IMEI: xxx
         # ESN: xxx
         output = str(self._cell_mgmt("module_ids"))
-        found = self._module_ids_imei_regex.search(output)
+        found = self._module_info_imei_regex.search(output)
         if found:
             imei = found.group(1)
 
-        found = self._module_ids_esn_regex.search(output)
+        found = self._module_info_esn_regex.search(output)
         if found:
             esn = found.group(1)
 
-        return CellularModuleIds(
+        return ModuleInfo(
+            module=module,
+            devname=devname,
             imei=imei,
             esn=esn)
 
     @critical_section
     @handle_error_return_code
-    def get_cellular_sim_info(self):
+    def get_sim_info(self):
         """
-        Return CellularSimInfo instance.
+        Return SimInfo instance.
         """
         iccid = ""
         imsi = ""
@@ -987,7 +932,7 @@ class CellMgmt(object):
         if found:
             imsi = found.group(1)
 
-        return CellularSimInfo(
+        return SimInfo(
             iccid=iccid,
             imsi=imsi)
 

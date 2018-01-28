@@ -17,7 +17,6 @@ from cellular_utility.cell_mgmt import (
     CellMgmt, CellMgmtError, SimStatus, CellularLocation, Signal
 )
 from cellular_utility.event import Log
-from cellular_utility.vnstat import VnStat, VnStatError
 
 _logger = logging.getLogger("sanji.cellular")
 
@@ -34,6 +33,7 @@ class CellularInformation(object):
             signal_csq=None,
             signal_rssi_dbm=None,
             signal_ecio_dbm=None,
+            signal_rsrq_dbm=None,
             operator=None,
             lac=None,
             tac=None,
@@ -45,6 +45,7 @@ class CellularInformation(object):
                 not isinstance(signal_csq, int) or
                 not isinstance(signal_rssi_dbm, int) or
                 not isinstance(signal_ecio_dbm, float) or
+                not isinstance(signal_rsrq_dbm, float) or
                 not isinstance(operator, basestring) or
                 not isinstance(lac, basestring) or
                 not isinstance(tac, basestring) or
@@ -60,6 +61,7 @@ class CellularInformation(object):
         self._signal_csq = signal_csq
         self._signal_rssi_dbm = signal_rssi_dbm
         self._signal_ecio_dbm = signal_ecio_dbm
+        self._signal_rsrq_dbm = signal_rsrq_dbm
         self._operator = operator
         self._lac = lac
         self._tac = tac
@@ -82,6 +84,10 @@ class CellularInformation(object):
     @property
     def signal_ecio_dbm(self):
         return self._signal_ecio_dbm
+
+    @property
+    def signal_rsrq_dbm(self):
+        return self._signal_rsrq_dbm
 
     @property
     def operator(self):
@@ -115,7 +121,12 @@ class CellularInformation(object):
             signal = cell_mgmt.signal_adv()
 
         except CellMgmtError:
-            signal = Signal(mode="n/a", rssi_dbm=0, ecio_dbm=0.0, csq=0)
+            signal = Signal(
+                    mode="n/a",
+                    rssi_dbm=0,
+                    ecio_dbm=0.0,
+                    rsrq_dbm=0.0,
+                    csq=0)
 
         try:
             operator = cell_mgmt.operator()
@@ -136,6 +147,7 @@ class CellularInformation(object):
             signal.csq,
             signal.rssi_dbm,
             signal.ecio_dbm,
+            signal.rsrq_dbm,
             operator,
             cellular_location.lac,
             cellular_location.tac,
@@ -262,6 +274,8 @@ class Manager(object):
         pin_error = 10
 
     class ModuleInformation(object):
+        '''Information followed by the module
+        '''
         def __init__(
                 self,
                 imei=None,
@@ -289,24 +303,23 @@ class Manager(object):
         def mac(self):
             return self._mac
 
-    class StaticInformation(object):
+    class SimInformation(object):
+        '''Information followed by a SIM card
+        '''
         def __init__(
                 self,
                 pin_retry_remain=None,
                 iccid=None,
-                imsi=None,
-                imei=None):
+                imsi=None):
 
             if (not isinstance(pin_retry_remain, int) or
                     not isinstance(iccid, basestring) or
-                    not isinstance(imsi, basestring) or
-                    not isinstance(imei, basestring)):
+                    not isinstance(imsi, basestring)):
                 raise ValueError
 
             self._pin_retry_remain = pin_retry_remain
             self._iccid = iccid
             self._imsi = imsi
-            self._imei = imei
 
         @property
         def pin_retry_remain(self):
@@ -320,61 +333,26 @@ class Manager(object):
         def imsi(self):
             return self._imsi
 
-        @property
-        def imei(self):
-            return self._imei
-
     def __init__(
             self,
             dev_name=None,
             enabled=None,
             pin=None,
-            pdp_context_static=None,
-            pdp_context_id=None,
-            pdp_context_primary_apn=None,
-            pdp_context_primary_type=None,
-            pdp_context_primary_auth=None,
-            pdp_context_primary_username=None,
-            pdp_context_primary_password=None,
-            pdp_context_secondary_apn=None,
-            pdp_context_secondary_type=None,
-            pdp_context_secondary_auth=None,
-            pdp_context_secondary_username=None,
-            pdp_context_secondary_password=None,
+            static_pdp_context=True,
+            pdp_context_id=1,
+            pdp_context_list=None,
             pdp_context_retry_timeout=None,
-            keepalive_enabled=None,
-            keepalive_host=None,
-            keepalive_period_sec=None,
+            keepalive=None,
             log_period_sec=None):
 
         if (not isinstance(dev_name, basestring) or
                 not isinstance(enabled, bool) or
-                not isinstance(pdp_context_static, bool) or
+                not isinstance(static_pdp_context, bool) or
                 not isinstance(pdp_context_id, int) or
-                not (isinstance(pdp_context_primary_apn, basestring) or
-                     pdp_context_primary_apn is None) or
-                not (isinstance(pdp_context_primary_type, basestring) or
-                     pdp_context_primary_type is None) or
-                not (isinstance(pdp_context_primary_auth, basestring) or
-                     pdp_context_primary_auth is None) or
-                not (isinstance(pdp_context_primary_username, basestring) or
-                     pdp_context_primary_username is None) or
-                not (isinstance(pdp_context_primary_password, basestring) or
-                     pdp_context_primary_password is None) or
-                not (isinstance(pdp_context_secondary_apn, basestring) or
-                     pdp_context_secondary_apn is None) or
-                not (isinstance(pdp_context_secondary_type, basestring) or
-                     pdp_context_secondary_type is None) or
-                not (isinstance(pdp_context_secondary_auth, basestring) or
-                     pdp_context_secondary_auth is None) or
-                not (isinstance(pdp_context_secondary_username, basestring) or
-                     pdp_context_secondary_username is None) or
-                not (isinstance(pdp_context_secondary_password, basestring) or
-                     pdp_context_secondary_password is None) or
+                not (isinstance(pdp_context_list, list) or
+                     pdp_context_list is None) or
                 not isinstance(pdp_context_retry_timeout, int) or
-                not isinstance(keepalive_enabled, bool) or
-                not isinstance(keepalive_host, basestring) or
-                not isinstance(keepalive_period_sec, int) or
+                not isinstance(keepalive, object) or
                 not isinstance(log_period_sec, int)):
             raise ValueError
 
@@ -385,28 +363,17 @@ class Manager(object):
         self._dev_name = dev_name
         self._enabled = enabled
         self._pin = pin
-        self._pdp_context_static = pdp_context_static
+        self._static_pdp_context = static_pdp_context
         self._pdp_context_id = pdp_context_id
-        self._pdp_context_primary_apn = pdp_context_primary_apn
-        self._pdp_context_primary_type = pdp_context_primary_type
-        self._pdp_context_primary_auth = pdp_context_primary_auth
-        self._pdp_context_primary_username = pdp_context_primary_username
-        self._pdp_context_primary_password = pdp_context_primary_password
-        self._pdp_context_secondary_apn = pdp_context_secondary_apn
-        self._pdp_context_secondary_type = pdp_context_secondary_type
-        self._pdp_context_secondary_auth = pdp_context_secondary_auth
-        self._pdp_context_secondary_username = pdp_context_secondary_username
-        self._pdp_context_secondary_password = pdp_context_secondary_password
+        self._pdp_context_list = pdp_context_list
         self._pdp_context_retry_timeout = pdp_context_retry_timeout
-        self._keepalive_enabled = keepalive_enabled
-        self._keepalive_host = keepalive_host
-        self._keepalive_period_sec = keepalive_period_sec
+        self._keepalive = keepalive
         self._log_period_sec = log_period_sec
 
         self._status = Manager.Status.initializing
 
         self._module_information = None
-        self._static_information = None
+        self._sim_information = None
 
         self._cell_mgmt = CellMgmt()
         self._stop = True
@@ -440,14 +407,14 @@ class Manager(object):
     def module_information(self):
         return self._module_information
 
-    def static_information(self):
-        return self._static_information
+    def sim_information(self):
+        return self._sim_information
 
     def cellular_information(self):
         """Return an instance of CellularInformation or None."""
         if self._observer is not None:
             cinfo = self._observer.cellular_information()
-            if cinfo is not None:
+            if cinfo:
                 self._cellular_information = cinfo
 
         return self._cellular_information
@@ -456,7 +423,7 @@ class Manager(object):
         """Return an instance of NetworkInformation or None."""
         return self._network_information
 
-    def pdp_context_list(self):
+    def current_pdp_context_list(self):
         """Return a list of PDP context."""
         return self._cell_mgmt.pdp_context_list()
 
@@ -477,7 +444,7 @@ class Manager(object):
             # set pin
             pin_retries_prev = self._cell_mgmt.get_pin_retry_remain()
             try:
-                self._cell_mgmt.set_pin(self._pin)
+                self._cell_mgmt.unlock_pin(self._pin)
             except CellMgmtError:
                 _logger.warning(format_exc())
                 sim_status = self._cell_mgmt.sim_status()
@@ -575,7 +542,7 @@ class Manager(object):
         """Return True on success, False on failure."""
         self._status = Manager.Status.initializing
         self._module_information = None
-        self._static_information = None
+        self._sim_information = None
         self._cellular_information = None
         self._network_information = None
 
@@ -594,7 +561,7 @@ class Manager(object):
                 retry += 1
                 continue
 
-            self._initialize_static_information()
+            self._initialize_sim_information()
             self._cellular_information = CellularInformation.get()
 
             if sim_status != SimStatus.ready:
@@ -613,10 +580,11 @@ class Manager(object):
         _logger.debug("_initialize_module_information")
         while True:
             try:
-                mids = self._cell_mgmt.get_cellular_module_ids()
-                iface = netifaces.ifaddresses(self._dev_name)
+                mids = self._cell_mgmt.module_info()
+                if mids.devname:
+                    iface = netifaces.ifaddresses(mids.devname)
                 try:
-                    mac = iface[netifaces.AF_LINK][0]['addr']
+                    mac = iface[netifaces.AF_LINK][0]["addr"]
                 except:
                     mac = "00:00:00:00:00:00"
 
@@ -632,19 +600,17 @@ class Manager(object):
                 self._sleep(10)
                 continue
 
-    def _initialize_static_information(self):
-        _logger.debug("_initialize_static_information")
+    def _initialize_sim_information(self):
+        _logger.debug("_initialize_sim_information")
         while True:
             try:
                 pin_retry_remain = self._cell_mgmt.get_pin_retry_remain()
-                minfo = self._cell_mgmt.m_info()
-                sinfo = self._cell_mgmt.get_cellular_sim_info()
+                sinfo = self._cell_mgmt.get_sim_info()
 
-                self._static_information = Manager.StaticInformation(
+                self._sim_information = Manager.SimInformation(
                     pin_retry_remain=pin_retry_remain,
                     iccid=sinfo.iccid,
-                    imsi=sinfo.imsi,
-                    imei=minfo.imei)
+                    imsi=sinfo.imsi)
 
                 break
 
@@ -659,25 +625,17 @@ class Manager(object):
 
             self._status = Manager.Status.connecting
 
-            if not self._try_connect(self._pdp_context_primary_apn,
-                                     self._pdp_context_primary_type,
-                                     self._pdp_context_primary_auth,
-                                     self._pdp_context_primary_username,
-                                     self._pdp_context_primary_password,
-                                     self._pdp_context_retry_timeout):
-
-                if self._pdp_context_static is False or \
-                        self._pdp_context_secondary_apn is None or \
-                        self._pdp_context_secondary_apn == "":
+            for pdpc in self._pdp_context_list:
+                if self._try_connect(
+                        pdpc["apn"],
+                        pdpc["type"],
+                        pdpc["auth"],
+                        pdpc["username"],
+                        pdpc["password"],
+                        self._pdp_context_retry_timeout):
                     break
-
-                if not self._try_connect(self._pdp_context_secondary_apn,
-                                         self._pdp_context_secondary_type,
-                                         self._pdp_context_secondary_auth,
-                                         self._pdp_context_secondary_username,
-                                         self._pdp_context_secondary_password,
-                                         self._pdp_context_retry_timeout):
-                    break
+            else:
+                break
 
             self._status = Manager.Status.connected
 
@@ -689,14 +647,14 @@ class Manager(object):
                     self._log.log_event_cellular_disconnect()
                     break
 
-                if self._keepalive_enabled:
+                if self._keepalive["enable"]:
                     if not self._checkalive_ping():
                         self._log.log_event_checkalive_failure()
                         break
 
                 self._sleep(
-                    self._keepalive_period_sec
-                    if self._keepalive_enabled
+                    self._keepalive["period_sec"]
+                    if self._keepalive["enable"]
                     else 60)
 
     def _attach(self):
@@ -725,12 +683,12 @@ class Manager(object):
 
     def _try_connect(
             self,
-            apn,
-            type,
-            auth,
-            username,
-            password,
-            retry_timeout):
+            apn="internet",
+            type="ipv4v6",
+            auth="none",
+            username="",
+            password="",
+            retry_timeout=600):
         retry = monotonic() + retry_timeout
         while True:
             self._interrupt_point()
@@ -747,7 +705,7 @@ class Manager(object):
             else:
                 return True
 
-    def _connect(self, apn, type, auth, username, password):
+    def _connect(self, apn, type, auth="none", username="", password=""):
         """Return True on success, False on failure.
         """
         self._network_information = None
@@ -762,16 +720,16 @@ class Manager(object):
                     self._network_information)
 
             try:
-                pdpc = (item for item in self.pdp_context_list()
+                pdpc = (item for item in self.current_pdp_context_list()
                         if item["id"] == self._pdp_context_id).next()
 
-                if self._pdp_context_static is True and pdpc["apn"] != apn:
+                if self._static_pdp_context is True and pdpc["apn"] != apn:
                     self._cell_mgmt.set_pdp_context(
                         self._pdp_context_id, apn, type)
                     if self.verify_sim() != SimStatus.ready:
                         raise StopException
 
-                pdpc = (item for item in self.pdp_context_list()
+                pdpc = (item for item in self.current_pdp_context_list()
                         if item["id"] == self._pdp_context_id).next()
             except:
                 self._log.log_event_no_pdp_context()
@@ -809,7 +767,7 @@ class Manager(object):
             self._log.log_event_connect_failure()
             return False
 
-        if self._keepalive_enabled:
+        if self._keepalive["enable"]:
             if not self._checkalive_ping():
                 self._log.log_event_checkalive_failure()
                 return False
@@ -846,7 +804,7 @@ class Manager(object):
                     "-c", "1",
                     "-I", self._dev_name,
                     "-W", str(self.PING_TIMEOUT_SEC),
-                    self._keepalive_host,
+                    self._keepalive["targetHost"],
                     _timeout=self.PING_TIMEOUT_SEC + 5
                 )
 
