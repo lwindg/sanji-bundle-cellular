@@ -1,0 +1,103 @@
+pipeline:
+
+  checkout:
+    image: docker.moxa.online/build/jessie-amd64:latest
+    commands:
+      - git checkout --track -b ${DRONE_BRANCH} origin/${DRONE_BRANCH}
+    when:
+      event:
+        exclude: [ pull_request ]
+      branch:
+        exclude: [ master ]
+
+  test:
+    image: docker.moxa.online/build/jessie-amd64-python:latest
+    commands:
+      - pip install -r requirements.txt
+      - make test
+
+  build_deb:
+    image: docker.moxa.online/build/jessie-amd64-python:latest
+    commands:
+      - make dist && make -C build-deb
+    when:
+      branch: [ master, develop ]
+      event: [ push, pull_request, deployment ]
+
+  publish_experimental_deb:
+    image: docker.moxa.online/build/jessie-amd64:latest
+    environment:
+      - DEB_TARGET=/data/storage/debian/pool/experimental/main/all/sanji-bundle/
+    commands:
+      - mkdir -p $${DEB_TARGET}
+      - cp ./build-deb/*.deb $${DEB_TARGET}
+      - cp ./build-deb/*.dsc $${DEB_TARGET}
+      - cp ./build-deb/*.changes $${DEB_TARGET}
+    when:
+      branch: develop
+      event: [ push, pull_request ]
+    volumes:
+      - /data/storage:/data/storage:z
+
+  publish_unstable_deb:
+    image: docker.moxa.online/build/jessie-amd64:latest
+    environment:
+      - DEB_TARGET=/data/storage/debian/pool/unstable/main/all/sanji-bundle/
+    commands:
+      - mkdir -p $${DEB_TARGET}
+      - cp ./build-deb/*.deb $${DEB_TARGET}
+      - cp ./build-deb/*.dsc $${DEB_TARGET}
+      - cp ./build-deb/*.changes $${DEB_TARGET}
+    when:
+      branch: develop
+      event: [ push, deployment ]
+    volumes:
+      - /data/storage:/data/storage:z
+
+  publish_stable_deb:
+    image: docker.moxa.online/build/jessie-amd64:latest
+    environment:
+      - DEB_TARGET=/data/storage/debian/pool/stable/main/all/sanji-bundle/
+    commands:
+      - mkdir -p $${DEB_TARGET}
+      - cp ./build-deb/*.deb $${DEB_TARGET}
+      - cp ./build-deb/*.dsc $${DEB_TARGET}
+      - cp ./build-deb/*.changes $${DEB_TARGET}
+    when:
+      branch: master
+      event: [ push, deployment ]
+    volumes:
+      - /data/storage:/data/storage:z
+
+  update_debin_repo_index:
+    image: docker.moxa.online/build/update-debin-repo-index:latest
+    when:
+      branch: [ master, develop, testing ]
+      event: [ push, deployment ]
+      status: success
+    volumes:
+      - /data/storage:/data/storage:z
+
+  notify_to_slack_channel:
+    image: plugins/slack
+    webhook: https://hooks.slack.com/services/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
+    channel: droneci
+    username: drone
+    when:
+      status: [ success, failure ]
+    template: >
+      {{#success build.status}}
+        build {{build.number}} succeeded. Good job.
+        - *repo:* {{repo.name}}
+        - *author:* {{build.author}}
+        - *event:* {{build.event}}
+        - *commit:* {{build.commit}}
+        - *link:* {{build.link}}
+      {{else}}
+        build {{build.number}} failed. Fix me please.
+        - *repo:* {{repo.name}}
+        - *author:* {{build.author}}
+        - *event:* {{build.event}}
+        - *commit:* {{build.commit}}
+        - *link:* {{build.link}}
+      {{/success}}
