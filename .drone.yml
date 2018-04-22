@@ -1,7 +1,6 @@
 pipeline:
-
   checkout:
-    image: docker.moxa.online/build/jessie-amd64:latest
+    image: docker.moxa.online/build/amd64-jessie:latest
     commands:
       - git checkout --track -b ${DRONE_BRANCH} origin/${DRONE_BRANCH}
     when:
@@ -11,72 +10,78 @@ pipeline:
         exclude: [ master ]
 
   test:
-    image: docker.moxa.online/build/jessie-amd64-python:latest
+    image: docker.moxa.online/build/amd64-jessie-python:latest
     commands:
+      - set-cache
+      - set
       - pip install -r requirements.txt
       - make test
+    volumes:
+      - /mnt/cache/:/mnt/cache:z
 
-  build_deb:
-    image: docker.moxa.online/build/jessie-amd64-python:latest
+  build_pkgs:
+    image: docker.moxa.online/build/amd64-jessie-python:latest
     commands:
-      - make dist && make -C build-deb
+      - set-cache
+      - set
+      - make dist
+      - make -C build-deb
     when:
       branch: [ master, develop ]
       event: [ push, pull_request, deployment ]
+    volumes:
+      - /mnt/cache/:/mnt/cache:z
 
-  publish_experimental_deb:
-    image: docker.moxa.online/build/jessie-amd64:latest
+  upload_experimental_deb_pkgs:
+    image: docker.moxa.online/build/amd64-jessie:latest
     environment:
-      - DEB_TARGET=/data/storage/debian/pool/experimental/main/all/sanji-bundle/
+      - DEB_TARGET=/mnt/storage/debian/pool/experimental/main/all/sanji-bundle/
+      - DEB_ASSETS=./build-deb/*.deb ./build-deb/*.dsc ./build-deb/*.changes
     commands:
       - mkdir -p $${DEB_TARGET}
-      - cp ./build-deb/*.deb $${DEB_TARGET}
-      - cp ./build-deb/*.dsc $${DEB_TARGET}
-      - cp ./build-deb/*.changes $${DEB_TARGET}
+      - cp $${DEB_ASSETS} $${DEB_TARGET}
     when:
       branch: develop
       event: [ push, pull_request ]
     volumes:
-      - /data/storage:/data/storage:z
+      - /mnt/storage:/mnt/storage:z
 
-  publish_unstable_deb:
-    image: docker.moxa.online/build/jessie-amd64:latest
+  upload_unstable_deb_pkgs:
+    image: docker.moxa.online/build/amd64-jessie:latest
     environment:
-      - DEB_TARGET=/data/storage/debian/pool/unstable/main/all/sanji-bundle/
+      - DEB_TARGET=/mnt/storage/debian/pool/unstable/main/all/sanji-bundle/
+      - DEB_ASSETS=./build-deb/*.deb ./build-deb/*.dsc ./build-deb/*.changes
     commands:
       - mkdir -p $${DEB_TARGET}
-      - cp ./build-deb/*.deb $${DEB_TARGET}
-      - cp ./build-deb/*.dsc $${DEB_TARGET}
-      - cp ./build-deb/*.changes $${DEB_TARGET}
+      - cp $${DEB_ASSETS} $${DEB_TARGET}
     when:
       branch: develop
       event: [ push, deployment ]
     volumes:
-      - /data/storage:/data/storage:z
+      - /mnt/storage:/mnt/storage:z
 
-  publish_stable_deb:
-    image: docker.moxa.online/build/jessie-amd64:latest
+  upload_stable_deb_pkgs:
+    image: docker.moxa.online/build/amd64-jessie:latest
     environment:
-      - DEB_TARGET=/data/storage/debian/pool/stable/main/all/sanji-bundle/
+      - DEB_TARGET=/mnt/storage/debian/pool/stable/main/all/sanji-bundle/
+      - DEB_ASSETS=./build-deb/*.deb ./build-deb/*.dsc ./build-deb/*.changes
     commands:
       - mkdir -p $${DEB_TARGET}
-      - cp ./build-deb/*.deb $${DEB_TARGET}
-      - cp ./build-deb/*.dsc $${DEB_TARGET}
-      - cp ./build-deb/*.changes $${DEB_TARGET}
+      - cp $${DEB_ASSETS} $${DEB_TARGET}
     when:
       branch: master
       event: [ push, deployment ]
     volumes:
-      - /data/storage:/data/storage:z
+      - /mnt/storage:/mnt/storage:z
 
-  update_debin_repo_index:
-    image: docker.moxa.online/build/update-debin-repo-index:latest
+  update_dpkg_server_index:
+    image: docker.moxa.online/plugins/debian-repo-update:latest
     when:
       branch: [ master, develop, testing ]
       event: [ push, deployment ]
       status: success
     volumes:
-      - /data/storage:/data/storage:z
+      - /mnt/storage:/mnt/storage:z
 
   notify_to_slack_channel:
     image: plugins/slack
