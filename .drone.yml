@@ -40,6 +40,8 @@ pipeline:
     commands:
       - mkdir -p $${DEB_TARGET}
       - cp $${DEB_ASSETS} $${DEB_TARGET}
+      - echo $${DEB_TARGET}
+      - find ${DEB_TARGET} -name '*.deb' -printf "%T+   %p" | sort -nr | head -n 1
     when:
       branch: develop
       event: [ push, pull_request ]
@@ -54,6 +56,8 @@ pipeline:
     commands:
       - mkdir -p $${DEB_TARGET}
       - cp $${DEB_ASSETS} $${DEB_TARGET}
+      - echo $${DEB_TARGET}
+      - find ${DEB_TARGET} -name '*.deb' -printf "%T+   %p" | sort -nr | head -n 1
     when:
       branch: develop
       event: [ push, deployment ]
@@ -68,6 +72,8 @@ pipeline:
     commands:
       - mkdir -p $${DEB_TARGET}
       - cp $${DEB_ASSETS} $${DEB_TARGET}
+      - echo $${DEB_TARGET}
+      - find ${DEB_TARGET} -name '*.deb' -printf "%T+   %p" | sort -nr | head -n 1
     when:
       branch: master
       event: [ push, deployment ]
@@ -76,9 +82,11 @@ pipeline:
 
   update_dpkg_server_index:
     image: docker.moxa.online/plugins/debian-repo-update:latest
+    environment:
+      - NAMESPACE=${DRONE_BRANCH}
     when:
       branch: [ master, develop, testing ]
-      event: [ push, deployment ]
+      event: [ push, pull_request ]
       status: success
     volumes:
       - /mnt/storage:/mnt/storage:z
