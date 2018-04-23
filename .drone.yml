@@ -41,7 +41,7 @@ pipeline:
       - mkdir -p $${DEB_TARGET}
       - cp $${DEB_ASSETS} $${DEB_TARGET}
       - echo $${DEB_TARGET}
-      - find ${DEB_TARGET} -name '*.deb' -printf "%T+   %p" | sort -nr | head -n 1
+      - find $${DEB_TARGET} -name '*.deb' -printf "%T+   %p" | sort -nr | head -n 1
     when:
       branch: develop
       event: [ push, pull_request ]
@@ -57,7 +57,7 @@ pipeline:
       - mkdir -p $${DEB_TARGET}
       - cp $${DEB_ASSETS} $${DEB_TARGET}
       - echo $${DEB_TARGET}
-      - find ${DEB_TARGET} -name '*.deb' -printf "%T+   %p" | sort -nr | head -n 1
+      - find $${DEB_TARGET} -name '*.deb' -printf "%T+   %p" | sort -nr | head -n 1
     when:
       branch: develop
       event: [ push, deployment ]
@@ -73,7 +73,7 @@ pipeline:
       - mkdir -p $${DEB_TARGET}
       - cp $${DEB_ASSETS} $${DEB_TARGET}
       - echo $${DEB_TARGET}
-      - find ${DEB_TARGET} -name '*.deb' -printf "%T+   %p" | sort -nr | head -n 1
+      - find $${DEB_TARGET} -name '*.deb' -printf "%T+   %p" | sort -nr | head -n 1
     when:
       branch: master
       event: [ push, deployment ]
