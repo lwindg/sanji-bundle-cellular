@@ -3,6 +3,7 @@ pipeline:
     image: docker.moxa.online/build/amd64-jessie:latest
     commands:
       - git checkout --track -b ${DRONE_BRANCH} origin/${DRONE_BRANCH}
+      - git merge ${CI_COMMIT_BRANCH}
     when:
       event:
         exclude: [ pull_request ]
