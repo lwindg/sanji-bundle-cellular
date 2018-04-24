@@ -8,6 +8,7 @@ pipeline:
         exclude: [ pull_request ]
       branch:
         exclude: [ master ]
+      local: false
 
   test:
     image: docker.moxa.online/build/amd64-jessie-python:latest
