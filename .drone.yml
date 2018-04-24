@@ -28,9 +28,6 @@ pipeline:
       - set
       - make dist
       - make -C build-deb
-    when:
-      branch: [ master, develop ]
-      event: [ push, pull_request, deployment ]
     volumes:
       - /mnt/cache/:/mnt/cache:z
 
