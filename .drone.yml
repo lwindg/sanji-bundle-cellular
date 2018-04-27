@@ -19,7 +19,7 @@ pipeline:
       - pip install -r requirements.txt
       - make test
     volumes:
-      - /mnt/cache/:/mnt/cache:z
+      - /var/tmp:/var/tmp:z
 
   build_pkgs:
     image: docker.moxa.online/build/amd64-jessie-python:latest
@@ -29,12 +29,12 @@ pipeline:
       - make dist
       - make -C build-deb
     volumes:
-      - /mnt/cache/:/mnt/cache:z
+      - /var/tmp:/var/tmp:z
 
   upload_experimental_deb_pkgs:
     image: docker.moxa.online/build/amd64-jessie:latest
     environment:
-      - DEB_TARGET=/mnt/storage/debian/pool/experimental/main/all/sanji-bundle/
+      - DEB_TARGET=/mnt/storage/repo/debian/pool/experimental/main/all/sanji-bundle/
       - DEB_ASSETS=./build-deb/*.deb ./build-deb/*.dsc ./build-deb/*.changes
     commands:
       - mkdir -p $${DEB_TARGET}
@@ -49,7 +49,7 @@ pipeline:
   upload_unstable_deb_pkgs:
     image: docker.moxa.online/build/amd64-jessie:latest
     environment:
-      - DEB_TARGET=/mnt/storage/debian/pool/unstable/main/all/sanji-bundle/
+      - DEB_TARGET=/mnt/storage/repo/debian/pool/unstable/main/all/sanji-bundle/
       - DEB_ASSETS=./build-deb/*.deb ./build-deb/*.dsc ./build-deb/*.changes
     commands:
       - mkdir -p $${DEB_TARGET}
@@ -64,7 +64,7 @@ pipeline:
   upload_stable_deb_pkgs:
     image: docker.moxa.online/build/amd64-jessie:latest
     environment:
-      - DEB_TARGET=/mnt/storage/debian/pool/stable/main/all/sanji-bundle/
+      - DEB_TARGET=/mnt/storage/repo/debian/pool/stable/main/all/sanji-bundle/
       - DEB_ASSETS=./build-deb/*.deb ./build-deb/*.dsc ./build-deb/*.changes
     commands:
       - mkdir -p $${DEB_TARGET}
