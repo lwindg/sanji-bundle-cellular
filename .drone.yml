@@ -1,6 +1,6 @@
 pipeline:
   checkout:
-    image: docker.moxa.online/build/amd64-jessie:latest
+    image: docker.moxa.online/build/amd64-jessie:2.3
     commands:
       - git checkout --track -b ${DRONE_BRANCH} origin/${DRONE_BRANCH}
       - git merge ${CI_COMMIT_BRANCH}
@@ -12,34 +12,32 @@ pipeline:
       local: false
 
   test:
-    image: docker.moxa.online/build/amd64-jessie-python:latest
+    image: docker.moxa.online/build/amd64-jessie-python:2.3
     commands:
-      - set-cache
-      - set
+      - set-cache; set
       - pip install -r requirements.txt
       - make test
     volumes:
       - /var/tmp:/var/tmp:z
 
   build_pkgs:
-    image: docker.moxa.online/build/amd64-jessie-python:latest
+    image: docker.moxa.online/build/amd64-jessie-python:2.3
     commands:
-      - set-cache
-      - set
+      - set-cache; set
       - make dist
       - make -C build-deb
     volumes:
       - /var/tmp:/var/tmp:z
 
   upload_experimental_deb_pkgs:
-    image: docker.moxa.online/build/amd64-jessie:latest
+    image: docker.moxa.online/build/amd64-jessie:2.3
     environment:
-      - DEB_TARGET=/mnt/storage/repo/debian/pool/experimental/main/all/sanji-bundle/
+      - DEB_TARGET=/mnt/storage/repo/debian/thingspro/pool/experimental/main/cg-bundle
       - DEB_ASSETS=./build-deb/*.deb ./build-deb/*.dsc ./build-deb/*.changes
     commands:
       - mkdir -p $${DEB_TARGET}
       - cp $${DEB_ASSETS} $${DEB_TARGET}
-      - find $${DEB_TARGET} -name '*.deb' -printf "%T+  %p \n" | sort -nr | head -n 1
+      - find $${DEB_TARGET} -name '*.deb' -printf "%T+  %p \n" | sort -nr | head -n 1 | sed 's/\/mnt\/storage\/repo/http:\/\/repo.moxa.online/g'
     when:
       branch: develop
       event: [ push, pull_request ]
@@ -47,29 +45,44 @@ pipeline:
       - /mnt/storage:/mnt/storage:z
 
   upload_unstable_deb_pkgs:
-    image: docker.moxa.online/build/amd64-jessie:latest
+    image: docker.moxa.online/build/amd64-jessie:2.3
     environment:
-      - DEB_TARGET=/mnt/storage/repo/debian/pool/unstable/main/all/sanji-bundle/
+      - DEB_TARGET=/mnt/storage/repo/debian/thingspro/pool/unstable/main/cg-bundle
       - DEB_ASSETS=./build-deb/*.deb ./build-deb/*.dsc ./build-deb/*.changes
     commands:
       - mkdir -p $${DEB_TARGET}
       - cp $${DEB_ASSETS} $${DEB_TARGET}
-      - find $${DEB_TARGET} -name '*.deb' -printf "%T+  %p \n" | sort -nr | head -n 1
+      - find $${DEB_TARGET} -name '*.deb' -printf "%T+  %p \n" | sort -nr | head -n 1 | sed 's/\/mnt\/storage\/repo/http:\/\/repo.moxa.online/g'
     when:
       branch: develop
       event: [ push, deployment ]
     volumes:
       - /mnt/storage:/mnt/storage:z
 
-  upload_stable_deb_pkgs:
-    image: docker.moxa.online/build/amd64-jessie:latest
+  upload_testing_deb_pkgs:
+    image: docker.moxa.online/build/amd64-jessie:2.3
     environment:
-      - DEB_TARGET=/mnt/storage/repo/debian/pool/stable/main/all/sanji-bundle/
+      - DEB_TARGET=/mnt/storage/repo/debian/thingspro/pool/testing/main/cg-bundle
       - DEB_ASSETS=./build-deb/*.deb ./build-deb/*.dsc ./build-deb/*.changes
     commands:
       - mkdir -p $${DEB_TARGET}
       - cp $${DEB_ASSETS} $${DEB_TARGET}
-      - find $${DEB_TARGET} -name '*.deb' -printf "%T+  %p \n" | sort -nr | head -n 1
+      - find $${DEB_TARGET} -name '*.deb' -printf "%T+  %p \n" | sort -nr | head -n 1 | sed 's/\/mnt\/storage\/repo/http:\/\/repo.moxa.online/g'
+    when:
+      branch: testing
+      event: [ push, deployment ]
+    volumes:
+      - /mnt/storage:/mnt/storage:z
+
+  upload_stable_deb_pkgs:
+    image: docker.moxa.online/build/amd64-jessie:2.3
+    environment:
+      - DEB_TARGET=/mnt/storage/repo/debian/thingspro/pool/stable/main/cg-bundle
+      - DEB_ASSETS=./build-deb/*.deb ./build-deb/*.dsc ./build-deb/*.changes
+    commands:
+      - mkdir -p $${DEB_TARGET}
+      - cp $${DEB_ASSETS} $${DEB_TARGET}
+      - find $${DEB_TARGET} -name '*.deb' -printf "%T+  %p \n" | sort -nr | head -n 1 | sed 's/\/mnt\/storage\/repo/http:\/\/repo.moxa.online/g'
     when:
       branch: master
       event: [ push, deployment ]
@@ -81,7 +94,7 @@ pipeline:
     environment:
       - NAMESPACE=${DRONE_BRANCH}
     when:
-      branch: [ master, develop, testing ]
+      branch: [ develop, testing, master ]
       event: [ push, pull_request ]
       status: success
     volumes:
