@@ -37,7 +37,7 @@ pipeline:
     commands:
       - mkdir -p $${DEB_TARGET}
       - cp $${DEB_ASSETS} $${DEB_TARGET}
-      - find $${DEB_TARGET} -name '*.deb' -printf "%T+  %p \n" | sort -nr | head -n 1 | sed 's/\\/mnt\\/storage\\/repo/http:\\/\\/repo.moxa.online/g'
+      - find $${DEB_TARGET} -name '*.deb' -printf "%T+  %p \n" | sort -nr | head -n 1 | sed 's/\\/mnt\\/storage\\/repo/http:\\/\\/repo.isd.moxa.com/g'
     when:
       branch: develop
       event: [ push, pull_request ]
@@ -52,7 +52,7 @@ pipeline:
     commands:
       - mkdir -p $${DEB_TARGET}
       - cp $${DEB_ASSETS} $${DEB_TARGET}
-      - find $${DEB_TARGET} -name '*.deb' -printf "%T+  %p \n" | sort -nr | head -n 1 | sed 's/\\/mnt\\/storage\\/repo/http:\\/\\/repo.moxa.online/g'
+      - find $${DEB_TARGET} -name '*.deb' -printf "%T+  %p \n" | sort -nr | head -n 1 | sed 's/\\/mnt\\/storage\\/repo/http:\\/\\/repo.isd.moxa.com/g'
     when:
       branch: develop
       event: [ push, deployment ]
@@ -67,7 +67,7 @@ pipeline:
     commands:
       - mkdir -p $${DEB_TARGET}
       - cp $${DEB_ASSETS} $${DEB_TARGET}
-      - find $${DEB_TARGET} -name '*.deb' -printf "%T+  %p \n" | sort -nr | head -n 1 | sed 's/\\/mnt\\/storage\\/repo/http:\\/\\/repo.moxa.online/g'
+      - find $${DEB_TARGET} -name '*.deb' -printf "%T+  %p \n" | sort -nr | head -n 1 | sed 's/\\/mnt\\/storage\\/repo/http:\\/\\/repo.isd.moxa.com/g'
     when:
       branch: testing
       event: [ push, deployment ]
@@ -82,7 +82,7 @@ pipeline:
     commands:
       - mkdir -p $${DEB_TARGET}
       - cp $${DEB_ASSETS} $${DEB_TARGET}
-      - find $${DEB_TARGET} -name '*.deb' -printf "%T+  %p \n" | sort -nr | head -n 1 | sed 's/\\/mnt\\/storage\\/repo/http:\\/\\/repo.moxa.online/g'
+      - find $${DEB_TARGET} -name '*.deb' -printf "%T+  %p \n" | sort -nr | head -n 1 | sed 's/\\/mnt\\/storage\\/repo/http:\\/\\/repo.isd.moxa.com/g'
     when:
       branch: master
       event: [ push, deployment ]
