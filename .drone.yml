@@ -89,7 +89,7 @@ pipeline:
     volumes:
       - /mnt/storage:/mnt/storage:z
 
-  update_dpkg_server_index:
+  dpkg_scanpackages:
     image: docker.moxa.online/plugins/debian-repo-update:latest
     environment:
       - NAMESPACE=${DRONE_BRANCH}
