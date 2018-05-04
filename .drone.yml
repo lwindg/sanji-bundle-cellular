@@ -69,7 +69,7 @@ pipeline:
       - cp $${DEB_ASSETS} $${DEB_TARGET}
       - find $${DEB_TARGET} -name '*.deb' -printf "%T+  %p \n" | sort -nr | head -n 1 | sed 's/\\/mnt\\/storage\\/repo/http:\\/\\/repo.isd.moxa.com/g'
     when:
-      branch: testing
+      branch: release
       event: [ push, deployment ]
     volumes:
       - /mnt/storage:/mnt/storage:z
