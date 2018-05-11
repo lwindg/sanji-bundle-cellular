@@ -106,7 +106,9 @@ pipeline:
   dpkg_scanpackages:
     image: docker.moxa.online/plugins/debian-repo-update:latest
     environment:
-      - NAMESPACE=${DRONE_BRANCH}
+      - OS_VER=jessie
+      - REPO=thingspro
+      - BRANCH=${DRONE_BRANCH}
     when:
       branch: [ develop, release/*, master ]
       event: [ push, pull_request ]
