@@ -18,7 +18,7 @@ pipeline:
       - pip install -r requirements.txt
       - make test
     volumes:
-      - /var/tmp:/var/tmp:z
+      - /var/tmp:/var/tmp:rw
 
   build_pkgs:
     image: docker.moxa.online/build/amd64-debian-python:jessie
@@ -27,7 +27,7 @@ pipeline:
       - make dist
       - make -C build-deb
     volumes:
-      - /var/tmp:/var/tmp:z
+      - /var/tmp:/var/tmp:rw
 
   upload_experimental_deb_pkgs:
     image: docker.moxa.online/build/amd64-debian:jessie
@@ -42,7 +42,7 @@ pipeline:
       branch: develop
       event: [ push, pull_request ]
     volumes:
-      - /mnt/storage:/mnt/storage:z
+      - /mnt/storage:/mnt/storage:rw
 
   upload_unstable_deb_pkgs:
     image: docker.moxa.online/build/amd64-debian:jessie
@@ -57,7 +57,7 @@ pipeline:
       branch: develop
       event: [ push, deployment ]
     volumes:
-      - /mnt/storage:/mnt/storage:z
+      - /mnt/storage:/mnt/storage:rw
 
   upload_release_deb_pkgs:
     image: docker.moxa.online/build/amd64-debian:jessie
@@ -72,7 +72,7 @@ pipeline:
       branch: release/*
       event: [ push, deployment ]
     volumes:
-      - /mnt/storage:/mnt/storage:z
+      - /mnt/storage:/mnt/storage:rw
 
   upload_stable_deb_pkgs:
     image: docker.moxa.online/build/amd64-debian:jessie
@@ -87,7 +87,7 @@ pipeline:
       branch: master
       event: [ push, deployment ]
     volumes:
-      - /mnt/storage:/mnt/storage:z
+      - /mnt/storage:/mnt/storage:rw
 
   upload_tag_deb_pkgs:
     image: docker.moxa.online/build/amd64-debian:jessie
@@ -101,7 +101,7 @@ pipeline:
     when:
       event: [ tag ]
     volumes:
-      - /mnt/storage:/mnt/storage:z
+      - /mnt/storage:/mnt/storage:rw
 
   dpkg_scanpackages:
     image: docker.moxa.online/plugins/debian-repo-update:latest
@@ -114,7 +114,7 @@ pipeline:
       event: [ push, pull_request ]
       status: success
     volumes:
-      - /mnt/storage:/mnt/storage:z
+      - /mnt/storage:/mnt/storage:rw
 
   notify_to_slack_channel:
     image: plugins/slack
