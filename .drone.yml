@@ -62,7 +62,7 @@ pipeline:
   upload_release_deb_pkgs:
     image: docker.moxa.online/build/amd64-debian:jessie
     environment:
-      - DEB_TARGET=/mnt/storage/repo/debian/jessie/thingspro/pool/${CI_COMMIT_BRANCH}/main/cg-bundle
+      - DEB_TARGET=/mnt/storage/repo/debian/jessie/thingspro/pool/${CI_COMMIT_BRANCH}/cg-bundle
       - DEB_ASSETS=./build-deb/*.deb ./build-deb/*.dsc ./build-deb/*.changes
     commands:
       - mkdir -p $${DEB_TARGET}
