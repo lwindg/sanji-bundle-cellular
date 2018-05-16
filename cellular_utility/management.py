@@ -114,8 +114,8 @@ class CellularInformation(object):
         return self._bid
 
     @staticmethod
-    def get():
-        cell_mgmt = CellMgmt()
+    def get(slot=1):
+        cell_mgmt = CellMgmt(slot)
 
         try:
             signal = cell_mgmt.signal_adv()
@@ -159,10 +159,12 @@ class CellularInformation(object):
 class CellularObserver(object):
     def __init__(
             self,
-            period_sec):
+            slot=1,
+            period_sec=60):
+        self._slot = slot
         self._period_sec = period_sec
 
-        self._cell_mgmt = CellMgmt()
+        self._cell_mgmt = CellMgmt(slot=self._slot)
 
         self._stop = True
         self._thread = None
@@ -195,7 +197,7 @@ class CellularObserver(object):
             next_check = now + self._period_sec
 
             try:
-                cellular_information = CellularInformation.get()
+                cellular_information = CellularInformation.get(slot=self._slot)
                 if cellular_information is not None:
                     self._cellular_information = cellular_information
             except Exception as e:
@@ -335,6 +337,7 @@ class Manager(object):
 
     def __init__(
             self,
+            slot=1,
             dev_name=None,
             enabled=None,
             pin=None,
@@ -345,7 +348,8 @@ class Manager(object):
             keepalive=None,
             log_period_sec=None):
 
-        if (not isinstance(dev_name, basestring) or
+        if (not isinstance(slot, int) or
+                not isinstance(dev_name, basestring) or
                 not isinstance(enabled, bool) or
                 not isinstance(static_pdp_context, bool) or
                 not isinstance(pdp_context_id, int) or
@@ -360,6 +364,7 @@ class Manager(object):
             if not isinstance(pin, basestring) or len(pin) < 4 or len(pin) > 8:
                 raise ValueError
 
+        self._slot = slot
         self._dev_name = dev_name
         self._enabled = enabled
         self._pin = pin
@@ -375,7 +380,7 @@ class Manager(object):
         self._module_information = None
         self._sim_information = None
 
-        self._cell_mgmt = CellMgmt()
+        self._cell_mgmt = CellMgmt(slot=self._slot)
         self._stop = True
 
         self._thread = None
@@ -515,7 +520,7 @@ class Manager(object):
                 return
 
             # start observation
-            self._observer = CellularObserver(period_sec=30)
+            self._observer = CellularObserver(slot=self._slot, period_sec=30)
             self._observer.start()
 
             if self._enabled:
@@ -562,7 +567,8 @@ class Manager(object):
                 continue
 
             self._initialize_sim_information()
-            self._cellular_information = CellularInformation.get()
+            self._cellular_information = \
+                CellularInformation.get(slot=self._slot)
 
             if sim_status != SimStatus.ready:
                 raise StopException

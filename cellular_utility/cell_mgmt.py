@@ -422,10 +422,13 @@ class CellMgmt(object):
 
     _lock = RLock()
 
-    def __init__(self):
+    def __init__(self, slot=1):
         # Add default timeout to cell_mgmt
         # will raise TimeoutException
-        self._cell_mgmt = sh_default_timeout(sh.cell_mgmt, 70)
+        self._slot = slot
+        self._cell_mgmt = sh_default_timeout(
+                sh.cell_mgmt.bake("-s", "{}".format(self._slot)),
+                70)
 
         self._invoke_period_sec = 0
 
