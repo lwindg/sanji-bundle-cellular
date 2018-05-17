@@ -138,12 +138,14 @@ class NetworkInformation(object):
     def __init__(
             self,
             status,
+            alias,
             devname,
             ip,
             netmask,
             gateway,
             dns_list):
         if (not isinstance(status, str) or
+                not isinstance(alias, str) or
                 not isinstance(devname, str) or
                 not isinstance(ip, str) or
                 not isinstance(netmask, str) or
@@ -158,6 +160,7 @@ class NetworkInformation(object):
                 raise ValueError
 
         self._status = status
+        self._alias = alias
         self._devname = devname
         self._ip = ip
         self._netmask = netmask
@@ -167,6 +170,10 @@ class NetworkInformation(object):
     @property
     def status(self):
         return self._status
+
+    @property
+    def alias(self):
+        return self._alias
 
     @property
     def devname(self):
@@ -344,6 +351,8 @@ class CellMgmt(object):
         r"Gateway: ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\n")
     _status_dns_regex = re.compile(
         r"DNS: ([0-9\. ]*)\n")
+    _status_dev_regex = re.compile(
+        r"IFName: ([\S]*)\n")
     _status_pppdev_regex = re.compile(
         r"PPPIFName: ([\S]*)\n")
     _signal_regex = re.compile(
@@ -426,6 +435,7 @@ class CellMgmt(object):
         # Add default timeout to cell_mgmt
         # will raise TimeoutException
         self._slot = slot
+        self._alias = "wwan{}".format(slot-1)
         self._cell_mgmt = sh_default_timeout(
                 sh.cell_mgmt.bake("-s", "{}".format(self._slot)),
                 70)
@@ -519,6 +529,7 @@ class CellMgmt(object):
 
         return NetworkInformation(
             status="connecting",
+            alias=self._alias,
             devname="",
             ip="",
             netmask="",
@@ -541,6 +552,7 @@ class CellMgmt(object):
             _logger.warning(format_exc() + ", ignored")
         return NetworkInformation(
             status="disconnected",
+            alias=self._alias,
             devname="",
             ip="",
             netmask="",
@@ -645,6 +657,7 @@ class CellMgmt(object):
             return NetworkInformation(
                 status=status,
                 devname=devname,
+                alias=self._alias,
                 ip=ip_,
                 netmask=netmask,
                 gateway=gateway,
@@ -680,16 +693,21 @@ class CellMgmt(object):
 
             dns = match.group(1).split(" ")
 
-            match = self._status_pppdev_regex.search(output)
+            match = self._status_dev_regex.search(output)
             if not match:
                 _logger.warning("unexpected output: " + output)
                 raise CellMgmtError
 
             devname = match.group(1)
 
+            match = self._status_pppdev_regex.search(output)
+            if match:
+                devname = match.group(1)
+
         return NetworkInformation(
             status=status,
             devname=devname,
+            alias=self._alias,
             ip=ip_,
             netmask=netmask,
             gateway=gateway,

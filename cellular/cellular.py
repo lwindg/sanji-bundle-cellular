@@ -2,21 +2,21 @@
 Helper library.
 """
 
-from enum import Enum
+import sys
 import logging
+from enum import Enum
 from monotonic import monotonic
 import sh
 from sh import ErrorReturnCode, TimeoutException
-import sys
 import netifaces
 from threading import Thread
 from time import sleep
 from traceback import format_exc
 
-from cellular_utility.cell_mgmt import (
+from cell_mgmt import (
     CellMgmt, CellMgmtError, SimStatus, CellularLocation, Signal
 )
-from cellular_utility.event import Log
+from event import Log
 
 _logger = logging.getLogger("sanji.cellular")
 
@@ -256,7 +256,7 @@ class CellularLogger(object):
                 _logger.warning(e)
 
 
-class Manager(object):
+class Cellular(object):
     PING_REQUEST_COUNT = 3
     PING_TIMEOUT_SEC = 20
     CONNECTING_STATUS_RETRY_COUNT = 10
@@ -375,7 +375,7 @@ class Manager(object):
         self._keepalive = keepalive
         self._log_period_sec = log_period_sec
 
-        self._status = Manager.Status.initializing
+        self._status = Cellular.Status.initializing
 
         self._module_information = None
         self._sim_information = None
@@ -437,11 +437,11 @@ class Manager(object):
         _logger.debug("sim_status = " + sim_status.name)
 
         if sim_status == SimStatus.nosim:
-            self._status = Manager.Status.nosim
+            self._status = Cellular.Status.nosim
             return sim_status
 
         if sim_status == SimStatus.pin:
-            self._status = Manager.Status.pin
+            self._status = Cellular.Status.pin
             if self._pin is None:
                 self._log.log_event_no_pin()
                 return sim_status
@@ -456,7 +456,7 @@ class Manager(object):
                 pin_retries_after = self._cell_mgmt.get_pin_retry_remain()
                 if sim_status == SimStatus.pin and \
                         (pin_retries_after - pin_retries_prev < 0):
-                    self._status = Manager.Status.pin_error
+                    self._status = Cellular.Status.pin_error
                     self._pin = None
                     self._log.log_event_pin_error()
                     return sim_status
@@ -464,11 +464,11 @@ class Manager(object):
             self._sleep(3, critical_section=True)
             sim_status = self._cell_mgmt.sim_status()
             if sim_status == SimStatus.ready:
-                self._status = Manager.Status.ready
+                self._status = Cellular.Status.ready
                 return sim_status
 
         if sim_status == SimStatus.ready:
-            self._status = Manager.Status.ready
+            self._status = Cellular.Status.ready
 
         return sim_status
 
@@ -545,7 +545,7 @@ class Manager(object):
 
     def _initialize(self):
         """Return True on success, False on failure."""
-        self._status = Manager.Status.initializing
+        self._status = Cellular.Status.initializing
         self._module_information = None
         self._sim_information = None
         self._cellular_information = None
@@ -558,7 +558,7 @@ class Manager(object):
         while retry < max_retry:
             self._interrupt_point()
 
-            self._status = Manager.Status.initializing
+            self._status = Cellular.Status.initializing
 
             sim_status = self.verify_sim()
             if sim_status == SimStatus.nosim:
@@ -573,7 +573,7 @@ class Manager(object):
             if sim_status != SimStatus.ready:
                 raise StopException
 
-            self._status = Manager.Status.ready
+            self._status = Cellular.Status.ready
             return True
 
         sim_status = self._cell_mgmt.sim_status()
@@ -594,7 +594,7 @@ class Manager(object):
                 except:
                     mac = "00:00:00:00:00:00"
 
-                self._module_information = Manager.ModuleInformation(
+                self._module_information = Cellular.ModuleInformation(
                     imei=mids.imei,
                     esn=mids.esn,
                     mac=mac)
@@ -613,7 +613,7 @@ class Manager(object):
                 pin_retry_remain = self._cell_mgmt.get_pin_retry_remain()
                 sinfo = self._cell_mgmt.get_sim_info()
 
-                self._sim_information = Manager.SimInformation(
+                self._sim_information = Cellular.SimInformation(
                     pin_retry_remain=pin_retry_remain,
                     iccid=sinfo.iccid,
                     imsi=sinfo.imsi)
@@ -629,21 +629,21 @@ class Manager(object):
         while True:
             self._interrupt_point()
 
-            self._status = Manager.Status.connecting
+            self._status = Cellular.Status.connecting
 
             for pdpc in self._pdp_context_list:
                 if self._try_connect(
-                        pdpc["apn"],
-                        pdpc["type"],
-                        pdpc["auth"],
-                        pdpc["username"],
-                        pdpc["password"],
+                        pdpc.get("apn", "internet"),
+                        pdpc.get("type", "ipv4v6"),
+                        pdpc.get("auth", "none"),
+                        pdpc.get("username", ""),
+                        pdpc.get("password", ""),
                         self._pdp_context_retry_timeout):
                     break
             else:
                 break
 
-            self._status = Manager.Status.connected
+            self._status = Cellular.Status.connected
 
             while True:
                 self._interrupt_point()
@@ -659,7 +659,7 @@ class Manager(object):
                         break
 
                 self._sleep(
-                    self._keepalive["period_sec"]
+                    self._keepalive["intervalSec"]
                     if self._keepalive["enable"]
                     else 60)
 
@@ -670,11 +670,11 @@ class Manager(object):
 
         retry = 0
         while True:
-            if self._status == Manager.Status.power_cycle:
+            if self._status == Cellular.Status.power_cycle:
                 self._sleep(1)
                 continue
 
-            self._status = Manager.Status.service_searching
+            self._status = Cellular.Status.service_searching
 
             if not self._cell_mgmt.attach():
                 retry += 1
@@ -684,7 +684,7 @@ class Manager(object):
                 continue
             break
 
-        self._status = Manager.Status.service_attached
+        self._status = Cellular.Status.service_attached
         return True
 
     def _try_connect(
@@ -699,10 +699,10 @@ class Manager(object):
         while True:
             self._interrupt_point()
 
-            self._status = Manager.Status.connecting
+            self._status = Cellular.Status.connecting
             if not self._connect(
                     apn, type, auth, username, password):
-                self._status = Manager.Status.connect_failure
+                self._status = Cellular.Status.connect_failure
 
                 if monotonic() >= retry:
                     break
@@ -788,7 +788,7 @@ class Manager(object):
     def _power_cycle(self, force=False):
         try:
             self._log.log_event_power_cycle()
-            self._status = Manager.Status.power_cycle
+            self._status = Cellular.Status.power_cycle
 
             self._cell_mgmt.power_cycle(force, timeout_sec=60)
         except CellMgmtError:
@@ -827,14 +827,18 @@ if __name__ == "__main__":
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
     logging.getLogger("sh").setLevel(logging.INFO)
 
-    mgr = Manager(
+    _pdpc = {}
+    _pdpc["apn"] = "internet"
+    _pdpc["type"] = "ipv4v6"
+
+    mgr = Cellular(
         dev_name="wwan0",
         enabled=True,
         pin="0000",
-        apn="internet",
-        keepalive_enabled=True,
-        keepalive_host="8.8.8.8",
-        keepalive_period_sec=60)
+        pdp_context_list=[_pdpc],
+        pdp_context_retry_timeout=150,
+        keepalive={"enable": True, "targetHost": "8.8.8.8", "intervalSec": 60},
+        log_period_sec=60)
 
     mgr.start()
     sleep(600)
