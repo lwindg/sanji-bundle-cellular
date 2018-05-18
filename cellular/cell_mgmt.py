@@ -137,15 +137,13 @@ def sh_default_timeout(func, timeout):
 class NetworkInformation(object):
     def __init__(
             self,
-            status,
-            alias,
-            devname,
-            ip,
-            netmask,
-            gateway,
-            dns_list):
+            status="disconnected",
+            devname="",
+            ip="",
+            netmask="",
+            gateway="",
+            dns_list=[]):
         if (not isinstance(status, str) or
-                not isinstance(alias, str) or
                 not isinstance(devname, str) or
                 not isinstance(ip, str) or
                 not isinstance(netmask, str) or
@@ -160,7 +158,6 @@ class NetworkInformation(object):
                 raise ValueError
 
         self._status = status
-        self._alias = alias
         self._devname = devname
         self._ip = ip
         self._netmask = netmask
@@ -170,10 +167,6 @@ class NetworkInformation(object):
     @property
     def status(self):
         return self._status
-
-    @property
-    def alias(self):
-        return self._alias
 
     @property
     def devname(self):
@@ -194,6 +187,16 @@ class NetworkInformation(object):
     @property
     def dns_list(self):
         return self._dns_list
+
+    def get(self):
+        return {
+            "status": self._status,
+            "devname": self._devname,
+            "ip": self._ip,
+            "netmask": self._netmask,
+            "gateway": self._gateway,
+            "dns_list": self._dns_list
+        }
 
 
 class ModuleInfo(object):
@@ -435,7 +438,6 @@ class CellMgmt(object):
         # Add default timeout to cell_mgmt
         # will raise TimeoutException
         self._slot = slot
-        self._alias = "wwan{}".format(slot-1)
         self._cell_mgmt = sh_default_timeout(
                 sh.cell_mgmt.bake("-s", "{}".format(self._slot)),
                 70)
@@ -528,13 +530,7 @@ class CellMgmt(object):
             sleep(self._invoke_period_sec)
 
         return NetworkInformation(
-            status="connecting",
-            alias=self._alias,
-            devname="",
-            ip="",
-            netmask="",
-            gateway="",
-            dns_list=[])
+            status="connecting")
 
     @critical_section
     @handle_error_return_code
@@ -550,14 +546,7 @@ class CellMgmt(object):
             self._cell_mgmt("stop")
         except ErrorReturnCode:
             _logger.warning(format_exc() + ", ignored")
-        return NetworkInformation(
-            status="disconnected",
-            alias=self._alias,
-            devname="",
-            ip="",
-            netmask="",
-            gateway="",
-            dns_list=[])
+        return NetworkInformation()
 
     @critical_section
     @handle_error_return_code
@@ -657,7 +646,6 @@ class CellMgmt(object):
             return NetworkInformation(
                 status=status,
                 devname=devname,
-                alias=self._alias,
                 ip=ip_,
                 netmask=netmask,
                 gateway=gateway,
@@ -707,7 +695,6 @@ class CellMgmt(object):
         return NetworkInformation(
             status=status,
             devname=devname,
-            alias=self._alias,
             ip=ip_,
             netmask=netmask,
             gateway=gateway,

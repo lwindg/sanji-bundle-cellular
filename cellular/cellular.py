@@ -16,6 +16,7 @@ from traceback import format_exc
 from cell_mgmt import (
     CellMgmt, CellMgmtError, SimStatus, CellularLocation, Signal
 )
+from cell_mgmt import NetworkInformation as NetInfo
 from event import Log
 
 _logger = logging.getLogger("sanji.cellular")
@@ -23,6 +24,33 @@ _logger = logging.getLogger("sanji.cellular")
 
 class StopException(Exception):
     pass
+
+
+class NetworkInformation(NetInfo):
+    def __init__(self, *args, **kwargs):
+        self._alias = kwargs.pop("alias", "")
+        super(NetworkInformation, self).__init__(*args, **kwargs)
+
+    @property
+    def alias(self):
+        return self._alias
+
+    def set(self,
+            status="disconnected",
+            alias=None,
+            devname="",
+            ip="",
+            netmask="",
+            gateway="",
+            dns_list=[]):
+        if alias:
+            self._alias = alias
+        self._status = status
+        self.devname = devname
+        self.ip = ip
+        self.netmask = netmask
+        self.gateway = gateway
+        self.dns_list = dns_list
 
 
 class CellularInformation(object):
@@ -365,6 +393,7 @@ class Cellular(object):
                 raise ValueError
 
         self._slot = slot
+        self._alias = "wwan{}".format(slot-1)
         self._dev_name = dev_name
         self._enabled = enabled
         self._pin = pin
@@ -392,7 +421,7 @@ class Cellular(object):
         self._cellular_information = None
 
         # instance of NetworkInformation
-        self._network_information = None
+        self._network_information = NetworkInformation(alias=self._alias)
 
         self._update_network_information_callback = None
 
@@ -499,7 +528,7 @@ class Cellular(object):
                     self._observer = None
 
                 self._log.log_event_cellular_disconnect()
-                self._network_information = self._cell_mgmt.stop()
+                self._network_information.set(self._cell_mgmt.stop())
                 # update nwk_info
                 if self._update_network_information_callback is not None:
                     self._update_network_information_callback(
@@ -549,7 +578,7 @@ class Cellular(object):
         self._module_information = None
         self._sim_information = None
         self._cellular_information = None
-        self._network_information = None
+        self._network_information = NetworkInformation(alias=self._alias)
 
         self._initialize_module_information()
 
@@ -714,12 +743,12 @@ class Cellular(object):
     def _connect(self, apn, type, auth="none", username="", password=""):
         """Return True on success, False on failure.
         """
-        self._network_information = None
+        self._network_information = NetworkInformation(alias=self._alias)
 
         try:
             self._log.log_event_connect_begin()
 
-            self._network_information = self._cell_mgmt.stop()
+            self._network_information.set(self._cell_mgmt.stop())
             # update nwk_info
             if self._update_network_information_callback is not None:
                 self._update_network_information_callback(
@@ -778,7 +807,7 @@ class Cellular(object):
                 self._log.log_event_checkalive_failure()
                 return False
 
-        self._network_information = nwk_info
+        self._network_information.set(nwk_info)
         # update nwk_info
         if self._update_network_information_callback is not None:
             self._update_network_information_callback(nwk_info)
