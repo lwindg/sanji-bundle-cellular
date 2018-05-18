@@ -3,6 +3,7 @@
 
 import logging
 import os
+import copy
 from threading import Thread
 from traceback import format_exc
 
@@ -48,7 +49,7 @@ class Manager(Model):
         }
         """
         self._cellulars = []
-        for module in self.getAll():
+        for module in super(Manager, self).getAll():
             cellular = {"id": module["id"], "conf": module}
             _init_thread = Thread(
                 name="sanji.cellular.{}.init_thread".format(module["id"]),
@@ -141,7 +142,7 @@ class Manager(Model):
             pdp_context_retry_timeout=conf["pdpContext"]["retryTimeout"],
             keepalive=conf["keepalive"],
             log_period_sec=60)
-        cellular["mamager"] = _mgr
+        cellular["manager"] = _mgr
 
         # clear PIN code if pin error
         if _mgr.status() == Cellular.Status.pin_error and pin != "":
@@ -187,6 +188,72 @@ class Manager(Model):
             f.write(config.format(
                 target_host=target_host, ifacecmd=ifacecmd, cycles=cycles))
         service("monit", "restart")
+
+    def _get_obj_by_id(self, id):
+        for cellular in self._cellulars:
+            if cellular["id"] == id:
+                return cellular
+        return None
+
+    def _get_data_by_obj(self, obj):
+        _mgr = obj["manager"]
+
+        try:
+            obj["vnstat"].update()
+            _usage = obj["vnstat"].get_usage()
+        except:
+            _usage = {
+                "txkbyte": -1,
+                "rxkbyte": -1
+            }
+
+        status = _mgr.status()
+        minfo = _mgr.module_information()
+        sinfo = _mgr.sim_information()
+        cinfo = _mgr.cellular_information()
+        ninfo = _mgr.network_information()
+
+        data = copy.deepcopy(obj["conf"])
+        data["status"] = status.name
+        data["name"] = ninfo.alias
+        data["mode"] = "" if cinfo is None else cinfo.mode
+        data["signal"] = {"csq": 0, "rssi": 0, "ecio": 0.0} if cinfo is None \
+            else {"csq": cinfo.signal_csq,
+                  "rssi": cinfo.signal_rssi_dbm,
+                  "ecio": cinfo.signal_ecio_dbm}
+        data["operatorName"] = "" if cinfo is None else cinfo.operator
+        data["lac"] = "" if cinfo is None else cinfo.lac
+        data["tac"] = "" if cinfo is None else cinfo.tac
+        data["nid"] = "" if cinfo is None else cinfo.nid
+        data["cellId"] = "" if cinfo is None else cinfo.cell_id
+        data["bid"] = "" if cinfo is None else cinfo.bid
+        data["imsi"] = "" if sinfo is None else sinfo.imsi
+        data["iccId"] = "" if sinfo is None else sinfo.iccid
+        data["pinRetryRemain"] = (
+                -1 if sinfo is None else sinfo.pin_retry_remain)
+        data["imei"] = "" if minfo is None else minfo.imei
+        data["esn"] = "" if minfo is None else minfo.esn
+        data["mac"] = "00:00:00:00:00:00" if minfo is None else minfo.mac
+        data["ip"] = "" if ninfo is None else ninfo.ip
+        data["netmask"] = "" if ninfo is None else ninfo.netmask
+        data["gateway"] = "" if ninfo is None else ninfo.gateway
+        data["dns"] = [] if ninfo is None else ninfo.dns_list
+        data["usage"] = _usage
+        return data
+
+    def get(self, id):
+        cellular = self._get_obj_by_id(id)
+        if not cellular:
+            raise ValueError("invalid cellular ID {}".format(id))
+        return self._get_data_by_obj(cellular)
+        # return super(Manager, self).get(id=id)
+
+    def getAll(self):
+        data = []
+        for cellular in self._cellulars:
+            data.append(self._get_data_by_obj(cellular))
+        return data
+        # return super(Manager, self).getAll()
 
 
 if __name__ == "__main__":
