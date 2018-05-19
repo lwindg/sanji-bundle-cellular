@@ -154,21 +154,20 @@ class Manager(Model):
 
         _mgr.start()
 
-    def __init_completed(self, id=1):
-        for cellular in self._cellulars:
-            if cellular["id"] != id:
-                continue
+    def __init_completed(self, obj=None):
+        if not obj:
+            return False
 
-            if cellular.get("initThread", None) is None:
-                return True
-
-            cellular["initThread"].join(0)
-            if cellular["initThread"].is_alive():
-                return False
-
-            cellular["initThread"] = None
+        if obj.get("initThread", None) is None:
             return True
-        return False
+
+        obj["initThread"].join(0)
+        if obj["initThread"].is_alive():
+            return False
+
+        obj["initThread"] = None
+        return True
+    return False
 
     def __init_monit_config(
             self, enable=False, target_host="8.8.8.8", iface="", cycles=1):
@@ -243,7 +242,7 @@ class Manager(Model):
 
     def get(self, id):
         cellular = self._get_obj_by_id(id)
-        if not cellular:
+        if not cellular or not self.__init_completed(obj=cellular):
             raise ValueError("invalid cellular ID {}".format(id))
         return self._get_data_by_obj(cellular)
         # return super(Manager, self).get(id=id)
@@ -251,6 +250,8 @@ class Manager(Model):
     def getAll(self):
         data = []
         for cellular in self._cellulars:
+            if not self.__init_completed(obj=cellular):
+                continue
             data.append(self._get_data_by_obj(cellular))
         return data
         # return super(Manager, self).getAll()
