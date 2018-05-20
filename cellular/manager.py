@@ -167,7 +167,6 @@ class Manager(Model):
 
         obj["initThread"] = None
         return True
-    return False
 
     def __init_monit_config(
             self, enable=False, target_host="8.8.8.8", iface="", cycles=1):
@@ -255,6 +254,27 @@ class Manager(Model):
             data.append(self._get_data_by_obj(cellular))
         return data
         # return super(Manager, self).getAll()
+
+    def update(self, id, newObj):
+        cellular = self._get_obj_by_id(id)
+        if not cellular or not self.__init_completed(obj=cellular):
+            raise ValueError("invalid cellular ID {}".format(id))
+
+        conf = newObj
+        cellular["conf"] = conf
+        cellular["manager"].stop()
+
+        self.__create_cellulard(cellular)
+        self.__init_monit_config(
+            enable=(conf["enable"] and
+                    conf["keepalive"]["enable"] and True and
+                    conf["keepalive"]["reboot"]["enable"] and
+                    True),
+            target_host=conf["keepalive"]["targetHost"],
+            iface=cellular["devname"],
+            cycles=conf["keepalive"]["reboot"]["cycles"]
+        )
+        return super(Manager, self).update(id, newObj)
 
 
 if __name__ == "__main__":

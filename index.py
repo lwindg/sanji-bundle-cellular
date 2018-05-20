@@ -113,7 +113,7 @@ class Index(Sanji):
         if data["pdpContext"]["static"] is True:
             data["pdpContext"]["id"] = 1
 
-        resp = self._mgr.update(id=id_, data=data)
+        resp = self._mgr.update(id=id_, newObj=data)
 
         return response(code=200, data=resp)
 
