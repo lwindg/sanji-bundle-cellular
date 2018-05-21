@@ -35,22 +35,14 @@ class NetworkInformation(NetInfo):
     def alias(self):
         return self._alias
 
-    def set(self,
-            status="disconnected",
-            alias=None,
-            devname="",
-            ip="",
-            netmask="",
-            gateway="",
-            dns_list=[]):
-        if alias:
-            self._alias = alias
-        self._status = status
-        self.devname = devname
-        self.ip = ip
-        self.netmask = netmask
-        self.gateway = gateway
-        self.dns_list = dns_list
+    def set(self, *args, **kwargs):
+        self._alias = kwargs.get("alias", self._alias)
+        self._status = kwargs.get("status", "disconnected")
+        self._devname = kwargs.get("devname", "")
+        self._ip = kwargs.get("ip", "")
+        self._netmask = kwargs.get("netmask", "")
+        self._gateway = kwargs.get("gateway", "")
+        self._dns_list = kwargs.get("dns_list", [])
 
 
 class CellularInformation(object):
@@ -528,7 +520,7 @@ class Cellular(object):
                     self._observer = None
 
                 self._log.log_event_cellular_disconnect()
-                self._network_information.set(self._cell_mgmt.stop())
+                self._network_information.set(**self._cell_mgmt.stop().get())
                 # update nwk_info
                 if self._update_network_information_callback is not None:
                     self._update_network_information_callback(
@@ -748,7 +740,7 @@ class Cellular(object):
         try:
             self._log.log_event_connect_begin()
 
-            self._network_information.set(self._cell_mgmt.stop())
+            self._network_information.set(**self._cell_mgmt.stop().get())
             # update nwk_info
             if self._update_network_information_callback is not None:
                 self._update_network_information_callback(
@@ -807,10 +799,11 @@ class Cellular(object):
                 self._log.log_event_checkalive_failure()
                 return False
 
-        self._network_information.set(nwk_info)
+        self._network_information.set(**nwk_info.get())
         # update nwk_info
         if self._update_network_information_callback is not None:
-            self._update_network_information_callback(nwk_info)
+            self._update_network_information_callback(
+                self._network_information)
 
         return True
 
