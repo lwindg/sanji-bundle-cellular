@@ -295,6 +295,7 @@ class Cellular(object):
         service_searching = 8
         service_attached = 9
         pin_error = 10
+        switching_carrier = 11
 
     class ModuleInformation(ModuleInfo):
         '''Information followed by the module
@@ -447,6 +448,8 @@ class Cellular(object):
 
     def current_pdp_context_list(self):
         """Return a list of PDP context."""
+        if self._status == Cellular.Status.switching_carrier:
+            return []
         _list = self._cell_mgmt.pdp_context_list()
         self._module_information.pdp_context_list = _list
         return _list

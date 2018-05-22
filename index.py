@@ -136,27 +136,21 @@ class Index(Sanji):
 
     @Route(methods="get", resource="/network/cellulars/:id/firmware")
     def get_fw(self, message, response):
-        m_info = self._mgr._cell_mgmt.module_info()
-        if m_info.module != "MC7354":
-            return response(code=200, data={
-                "switchable": False,
-                "current": None,
-                "preferred": None,
-                "avaliable": None
-            })
+        id_ = int(message.param["id"])
+        try:
+            data = self._mgr.get_fw(id_)
+        except:
+            self._logger.warning(format_exc())
+            return response(code=400, data={"message": "resource not exist"})
 
-        fw_info = self._mgr._cell_mgmt.get_cellular_fw()
-        return response(code=200, data=fw_info)
+        return response(code=200, data=data)
 
     @Route(methods="put", resource="/network/cellulars/:id/firmware")
     def put_fw(self, message, response):
         response(code=200)
 
-        self._mgr._cell_mgmt.set_cellular_fw(
-            fwver=message.data["fwver"],
-            config=message.data["config"],
-            carrier=message.data["carrier"]
-        )
+        id_ = int(message.param["id"])
+        self._mgr.update_fw(id_, **message.data)
 
 
 if __name__ == "__main__":

@@ -1088,7 +1088,7 @@ class CellMgmt(object):
 
     @critical_section
     @handle_error_return_code
-    def set_cellular_fw(self, fwver, config, carrier):
+    def set_cellular_fw(self, carrier, **kwargs):
         """
         Return Cellular FW information.
         """

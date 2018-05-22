@@ -45,7 +45,8 @@ class Manager(Model):
             "devname": [device node],
             "vnstat": [vnstat object],
             "manager": [manager object],
-            "initThread": [thread object]
+            "initThread": [thread object],
+            "cellmgmt": [cell_mgmt object]
         }
         """
         self._cellulars = []
@@ -95,6 +96,7 @@ class Manager(Model):
                 cell_mgmt.power_cycle(timeout_sec=60)
 
         cellular["devname"] = devname
+        cellular["cellmgmt"] = cell_mgmt
         self.__init_cellular(cellular)
 
         if not devname and devname != "":
@@ -158,7 +160,9 @@ class Manager(Model):
         _mgr.start()
 
     def __init_completed(self, obj=None):
-        if not obj:
+        if not obj or \
+                not obj["manager"] or \
+                obj["manager"].status() == Cellular.Status.switching_carrier:
             return False
 
         if obj.get("initThread", None) is None:
@@ -269,6 +273,39 @@ class Manager(Model):
 
         self.__init_cellular(cellular)
         return super(Manager, self).update(id, newObj)
+
+    def get_fw(self, id):
+        cellular = self._get_obj_by_id(id)
+        if not cellular or not self.__init_completed(obj=cellular):
+            raise ValueError("invalid cellular ID {}".format(id))
+        try:
+            fw_info = cellular["cellmgmt"].get_cellular_fw()
+        except:
+            return {
+                "switchable": False,
+                "current": None,
+                "preferred": None,
+                "avaliable": None
+            }
+        return fw_info
+
+    def update_fw(self, id, **kwargs):
+        cellular = self._get_obj_by_id(id)
+        if not cellular or not self.__init_completed(obj=cellular):
+            raise ValueError("invalid cellular ID {}".format(id))
+
+        if cellular["manager"] is not None:
+            cellular["manager"].stop()
+            cellular["manager"]._status = Cellular.Status.switching_carrier
+
+        try:
+
+            cellular["cellmgmt"].set_cellular_fw(
+                kwargs.pop("carrier"), **kwargs)
+        except:
+            self._logger.warning("switch carrier failed: " + format_exc())
+
+        self.__init_cellular(cellular)
 
 
 if __name__ == "__main__":
