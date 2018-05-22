@@ -1084,15 +1084,11 @@ class CellMgmt(object):
         """
         Return Cellular FW information.
         """
-        atcmd = "AT!GOBIIMPREF=\"{}\",\"{}\",\"{}\"".format(
-            fwver, carrier, config)
-        _logger.debug("cell_mgmt ATE0")
-        self.at("ATE0")
-        _logger.debug("cell_mgmt AT!ENTERCND=A710")
-        self.at("AT!ENTERCND=\"A710\"")
-        _logger.debug("cell_mgmt {}".format(atcmd))
-        self.at(atcmd)
-        self.power_cycle()
+        _logger.debug(
+            "cell_mgmt switch_carrier {} allow_fw_update".format(carrier))
+        sh.cell_mgmt(
+            "switch_carrier", carrier, "allow_fw_update",
+            _timeout=300)
 
 
 if __name__ == "__main__":
