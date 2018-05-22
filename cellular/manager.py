@@ -60,6 +60,19 @@ class Manager(Model):
             cellular["initThread"] = _init_thread
             self._cellulars.append(cellular)
 
+    def __init_cellular(self, cellular=None):
+        conf = cellular["conf"]
+        self.__init_monit_config(
+            enable=(conf["enable"] and
+                    conf["keepalive"]["enable"] and True and
+                    conf["keepalive"]["reboot"]["enable"] and
+                    True),
+            target_host=conf["keepalive"]["targetHost"],
+            iface=cellular["devname"],
+            cycles=conf["keepalive"]["reboot"]["cycles"]
+        )
+        self.__create_cellulard(cellular)
+
     def __initial_procedure(self, cellular=None):
         """
         Continuously check Cellular modem existence.
@@ -81,18 +94,8 @@ class Manager(Model):
                 _logger.warning("get module failure: " + format_exc())
                 cell_mgmt.power_cycle(timeout_sec=60)
 
-        conf = cellular["conf"]
         cellular["devname"] = devname
-        self.__init_monit_config(
-            enable=(conf["enable"] and
-                    conf["keepalive"]["enable"] and True and
-                    conf["keepalive"]["reboot"]["enable"] and
-                    True),
-            target_host=conf["keepalive"]["targetHost"],
-            iface=cellular["devname"],
-            cycles=conf["keepalive"]["reboot"]["cycles"]
-        )
-        self.__create_cellulard(cellular)
+        self.__init_cellular(cellular)
 
         if not devname and devname != "":
             cellular["vnstat"] = VnStat(devname)
@@ -261,20 +264,10 @@ class Manager(Model):
         if not cellular or not self.__init_completed(obj=cellular):
             raise ValueError("invalid cellular ID {}".format(id))
 
-        conf = newObj
-        cellular["conf"] = conf
+        cellular["conf"] = newObj
         cellular["manager"].stop()
 
-        self.__create_cellulard(cellular)
-        self.__init_monit_config(
-            enable=(conf["enable"] and
-                    conf["keepalive"]["enable"] and True and
-                    conf["keepalive"]["reboot"]["enable"] and
-                    True),
-            target_host=conf["keepalive"]["targetHost"],
-            iface=cellular["devname"],
-            cycles=conf["keepalive"]["reboot"]["cycles"]
-        )
+        self.__init_cellular(cellular)
         return super(Manager, self).update(id, newObj)
 
 
