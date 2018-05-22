@@ -17,6 +17,7 @@ from cell_mgmt import (
     CellMgmt, CellMgmtError, SimStatus, CellularLocation, Signal
 )
 from cell_mgmt import NetworkInformation as NetInfo
+from cell_mgmt import ModuleInfo
 from event import Log
 
 _logger = logging.getLogger("sanji.cellular")
@@ -295,33 +296,16 @@ class Cellular(object):
         service_attached = 9
         pin_error = 10
 
-    class ModuleInformation(object):
+    class ModuleInformation(ModuleInfo):
         '''Information followed by the module
         '''
-        def __init__(
-                self,
-                imei=None,
-                esn=None,
-                mac=None,
-                pdp_context_list=[]):
-
-            if (not isinstance(imei, basestring) or
-                    not isinstance(esn, basestring) or
-                    not isinstance(mac, basestring)):
+        def __init__(self, *args, **kwargs):
+            if not isinstance(kwargs.get("mac"), basestring):
                 raise ValueError
 
-            self._imei = imei
-            self._esn = esn
-            self._mac = mac
-            self._pdp_context_list = pdp_context_list
-
-        @property
-        def imei(self):
-            return self._imei
-
-        @property
-        def esn(self):
-            return self._esn
+            self._mac = kwargs.pop("mac", "")
+            self._pdp_context_list = kwargs.pop("pdp_context_list", [])
+            super(Cellular.ModuleInformation, self).__init__(*args, **kwargs)
 
         @property
         def mac(self):
@@ -621,18 +605,17 @@ class Cellular(object):
         _logger.debug("_initialize_module_information")
         while True:
             try:
-                mids = self._cell_mgmt.module_info()
-                if mids.devname:
-                    iface = netifaces.ifaddresses(mids.devname)
+                minfo = self._cell_mgmt.module_info()
+                if minfo.devname:
+                    iface = netifaces.ifaddresses(minfo.devname)
                 try:
                     mac = iface[netifaces.AF_LINK][0]["addr"]
                 except:
                     mac = "00:00:00:00:00:00"
 
-                self._module_information = Cellular.ModuleInformation(
-                    imei=mids.imei,
-                    esn=mids.esn,
-                    mac=mac)
+                _info = minfo.get()
+                _info["mac"] = mac
+                self._module_information = Cellular.ModuleInformation(**_info)
                 self.current_pdp_context_list()
 
                 break

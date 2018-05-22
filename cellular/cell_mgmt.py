@@ -227,6 +227,14 @@ class ModuleInfo(object):
     def esn(self):
         return self._esn
 
+    def get(self):
+        return {
+            "module": self._module,
+            "devname": self._devname,
+            "imei": self._imei,
+            "esn": self._esn
+        }
+
 
 class SimStatus(Enum):
     nosim = 0
