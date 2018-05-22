@@ -212,6 +212,7 @@ class Manager(Model):
         ninfo = _mgr.network_information()
 
         data = copy.deepcopy(obj["conf"])
+        data["pdpContext"]["list"] = minfo.pdp_context_list
         data["status"] = status.name
         data["name"] = ninfo.alias
         data["mode"] = "" if cinfo is None else cinfo.mode

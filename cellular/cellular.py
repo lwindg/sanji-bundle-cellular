@@ -302,7 +302,8 @@ class Cellular(object):
                 self,
                 imei=None,
                 esn=None,
-                mac=None):
+                mac=None,
+                pdp_context_list=[]):
 
             if (not isinstance(imei, basestring) or
                     not isinstance(esn, basestring) or
@@ -312,6 +313,7 @@ class Cellular(object):
             self._imei = imei
             self._esn = esn
             self._mac = mac
+            self._pdp_context_list = pdp_context_list
 
         @property
         def imei(self):
@@ -324,6 +326,16 @@ class Cellular(object):
         @property
         def mac(self):
             return self._mac
+
+        @property
+        def pdp_context_list(self):
+            return self._pdp_context_list
+
+        @pdp_context_list.setter
+        def pdp_context_list(self, data=[]):
+            if not data:
+                data = []
+            self._pdp_context_list = data
 
     class SimInformation(object):
         '''Information followed by a SIM card
@@ -451,7 +463,9 @@ class Cellular(object):
 
     def current_pdp_context_list(self):
         """Return a list of PDP context."""
-        return self._cell_mgmt.pdp_context_list()
+        _list = self._cell_mgmt.pdp_context_list()
+        self._module_information.pdp_context_list = _list
+        return _list
 
     def verify_sim(self):
         sim_status = self._cell_mgmt.sim_status()
@@ -619,6 +633,7 @@ class Cellular(object):
                     imei=mids.imei,
                     esn=mids.esn,
                     mac=mac)
+                self.current_pdp_context_list()
 
                 break
 
