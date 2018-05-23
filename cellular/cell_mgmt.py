@@ -1094,7 +1094,7 @@ class CellMgmt(object):
         """
         _logger.debug(
             "cell_mgmt switch_carrier {} allow_fw_update".format(carrier))
-        sh.cell_mgmt(
+        self._cell_mgmt(
             "switch_carrier", carrier, "allow_fw_update",
             _timeout=300)
 
