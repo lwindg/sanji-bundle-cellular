@@ -105,19 +105,21 @@ def retry_on_busy(func, *args, **kwargs):
 
 @decorator
 def critical_section(func, *args, **kwargs):
-    if CellMgmt._lock._RLock__owner == thread.get_ident() \
-            or CellMgmt._lock._RLock__owner is None:
-        with CellMgmt._lock:
+    _lock = args[0]._lock
+    #if CellMgmt._lock._RLock__owner == thread.get_ident() \
+    #        or CellMgmt._lock._RLock__owner is None:
+    if _lock._RLock__owner is None:
+        with _lock:
             return func(*args, **kwargs)
 
     # lock by process
     timeout = 120
     while timeout > 0:
-        if CellMgmt._lock.acquire(blocking=False) is True:
+        if _lock.acquire(blocking=False) is True:
             try:
                 return func(*args, **kwargs)
             finally:
-                CellMgmt._lock.release()
+                _lock.release()
         else:
             timeout = timeout - 1
             sleep(1)
@@ -440,7 +442,6 @@ class CellMgmt(object):
     _split_param_by_comma_regex = re.compile(
         r",{0,1}\"{0,1}([^\s\",]*)\"{0,1},{0,1}")
 
-    _lock = RLock()
 
     def __init__(self, slot=1):
         # Add default timeout to cell_mgmt
@@ -450,6 +451,7 @@ class CellMgmt(object):
                 sh.cell_mgmt.bake("-s", "{}".format(self._slot)),
                 70)
 
+        self._lock = RLock()
         self._invoke_period_sec = 0
 
         self._use_shell = False
